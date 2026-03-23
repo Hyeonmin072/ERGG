@@ -1,0 +1,614 @@
+"userGames": [ 유저 게임
+    {
+      "userNum": 4095353, 유저 고유 번호
+      "nickname": "김현민", 유저 닉네임
+      "gameId": 51151757, 게임 아이디
+      "seasonId": 33, 시즌 번호
+      "matchingMode": 3, 매치 모드 (3=랭크)
+      "matchingTeamMode": 3, 3인큐(고정)
+      "characterNum": 78, 캐릭터 번호
+      "skinCode": 1078001, 캐릭터 스킨 코드
+      "characterLevel": 10, 캐릭터 레벨
+      "gameRank": 8, 게임 순위
+      "playerKill": 0, 플레이어 킬
+      "playerAssistant": 1, 플레이어 어시스트
+      "monsterKill": 10, 몬스터 킬 ?
+      "bestWeapon": 16, 최고 레벨 무기 번호
+      "bestWeaponLevel": 9, 무기 최고 레벨
+
+
+      "masteryLevel": { 마스터리 레벨
+        "16": 9,
+        "101": 8,
+        "102": 4,
+        "103": 8,
+        "201": 11,
+        "202": 6
+      },
+
+
+      "equipment": { 착용 장비 번호
+        "0": 102410,
+        "1": 202420,
+        "2": 201417,
+        "3": 203412,
+        "4": 204401
+      },
+
+
+      "equipmentGrade": { 착용 장비 등급
+        "0": 4,
+        "1": 4,
+        "2": 4,
+        "3": 4,
+        "4": 4
+      },
+
+
+
+      "versionMajor": 3, 버전 메이저 
+      "versionMinor": 0, 버전 마이너
+	ex : 현재 버전은 3.0.n
+
+      "language": "Korean", 언어
+
+      "skillLevelInfo": { 스킬 레벨 정보
+        "1078100": 2,
+        "1078200": 2,
+        "1078300": 3,
+        "1078310": 1,
+        "1078400": 1,
+        "1078500": 1,
+        "3016000": 1
+      },
+
+
+
+      "skillOrderInfo": { 스킬 습득 순서
+        "1": 1078400,
+        "2": 1078200,
+        "3": 1078300,
+        "4": 1078200,
+        "5": 1078100,
+        "6": 1078500,
+        "7": 1078310,
+        "8": 1078300,
+        "9": 3016000,
+        "10": 1078100,
+        "11": 1078300
+      },
+
+
+
+      "serverName": "Asia", 서버 이름
+      "maxHp": 1848, 최대 체력
+      "maxSp": 1074, 최대 스테미너
+      "attackPower": 261, 공격력
+      "defense": 118, 방어력
+      "hpRegen": 1.65, 체력 재생
+      "spRegen": 28.25, 마나 재생
+      "attackSpeed": 1.05, 공격 속도
+      "moveSpeed": 3.81, 이동 속도
+      "outOfCombatMoveSpeed": 3.81, 비전투이동속도
+      "sightRange": 8.5, 시야 거리
+      "attackRange": 2.05, 공격 거리
+      "criticalStrikeChance": 0, 크리티컬 확률
+      "criticalStrikeDamage": 0, 크리티컬 데미지
+      "coolDownReduction": 0, 쿨타임 감소
+      "lifeSteal": 0.07, 생명력 흡수
+      "normalLifeSteal": 0, 일반 공격 흡혈
+      "skillLifeSteal": 0, 스킬 공격 흡혈
+      "amplifierToMonster": 12, 몬스터 피해 증폭
+      "trapDamage": 0, 트랩 데미지
+      "bonusCoin": 0, 보너스 코인 << ?
+      "gainExp": 12, 획득 경험치
+      "baseExp": 12, 기본 경험치
+      "bonusExp": 0, 보너스 경험치 
+      "startDtm": "2025-08-12T01:58:38.038+0900", 게임 시작 시간
+      "duration": 416, 게임 지속 시간(초)
+      "mmrBefore": 4984, 게임 전 MMR
+      "mmrGain": -24, MMR 변화량 
+      "mmrAfter": 4960, 게임 후 MMR
+      "playTime": 411, 플레이 시간 (초)
+      "watchTime": 0, 관전 시간
+      "totalTime": 411, 총 시간 
+      "survivableTime": 30, 생존 시간
+      "botAdded": 0, 봇 수
+      "botRemain": 0, 남은 봇 수
+      "restrictedAreaAccelerated": 0, 금지구역 가속 여부
+      "safeAreas": 20, 안전 지대 수
+      "teamNumber": 4, 팀 번호
+      "preMade": 1, 사전 구성 팀 여부
+      "eventMissionResult": { 이벤트 미션 결과
+        "310": 0
+      },
+
+
+
+      "gainedNormalMmrKFactor": 0, ?
+      "victory": 0, 승리 여부(1,0)
+      "craftUncommon": 8, 일반 등급 제작 수
+      "craftRare": 6, 레어 등급 제작 수
+      "craftEpic": 5, 에픽 등급 제작 수
+      "craftLegend": 0, 레전드 등급 제작 수
+      "damageToPlayer": 7183, 플레이어에게 가한 데미지
+      "damageToPlayer_trap": 0, 함정으로 가한 데미지
+      "damageToPlayer_basic": 1213, 기본 공격으로 가한 데미지
+      "damageToPlayer_skill": 5970, 스킬로 가한 데미지
+      "damageToPlayer_itemSkill": 0, 아이템 스킬로 가한 데미지
+      "damageToPlayer_direct": 0, 직접 데미지 ?
+      "damageToPlayer_uniqueSkill": 0, 고유 스킬로 가한 데미지
+
+
+      "damageFromPlayer": 8869, 받은 데미지
+      "damageFromPlayer_trap": 0, 트랩으로 받은 데미지
+      "damageFromPlayer_basic": 1840, 기본 공격으로 받은 데미지
+      "damageFromPlayer_skill": 6272, 스킬로 받은 데미지
+      "damageFromPlayer_itemSkill": 655, 아이템 스킬로 받은 데미지
+      "damageFromPlayer_direct": 102, 직접 데미지
+      "damageFromPlayer_uniqueSkill": 0, 고유 스킬로 받은 데미지
+
+
+      "damageToMonster": 10118, 몬스터에게 가한 데미지
+      "damageToMonster_trap": 0, 트랩으로 몬스터에게 가한 데미지
+      "damageToMonster_basic": 1379, 기본 공격으로 몬스터에게 가한 데미지
+      "damageToMonster_skill": 8739, 스킬로 몬스터에게 가한 데미지
+      "damageToMonster_itemSkill": 0, 아이템 스킬로 몬스터에게 가한 데미지
+      "damageToMonster_direct": 0, 몬스터에게 가한 직접 데미지
+      "damageToMonster_uniqueSkill": 0, 고유 스킬로 몬스터에게 가한 데미지
+
+
+      "damageFromMonster": 836, 몬스터에게 받은 데미지
+      "damageToPlayer_Shield": 0, 쉴드로 상쇄한 데미지
+      "damageOffsetedByShield_Player": 823, 플레이어 쉴드로 상쇄한 데미지
+      "damageOffsetedByShield_Monster": 264, 몬스터 실드로 상쇄한 데미지
+
+
+      "killMonsters": { 잡은 몬스터 수량
+        "1": 4,
+        "3": 2,
+        "5": 3,
+        "6": 1
+      },
+
+
+      "healAmount": 6577, 회복량
+      "teamRecover": 0, 팀 회복량
+      "protectAbsorb": 1087, 보호막 흡수량
+
+
+      "addSurveillanceCamera": 0, 설치한 감시 카메라 수
+      "addTelephotoCamera": 0, 설치한 망원 카메라 수
+      "removeSurveillanceCamera": 0, 제거한 감시 카메라 수
+      "removeTelephotoCamera": 0, 제거한 망원 카메라 수
+      "useHyperLoop": 3, 하이퍼 루프 사용 횟수
+      "useSecurityConsole": 1, 보안 콘솔 사용 수
+      "giveUp": 0, 포기 여부(1,0)
+      "teamSpectator": 0, 팀 관전자 여부
+      "routeIdOfStart": 12299, 시작 루트 번호
+      "routeSlotId": 0, 루트 슬롯 ID
+      "placeOfStart": "190", 시작 장소 번호
+      "mmrAvg": 4704, 매치 평균 MMR
+      "matchSize": 24, 매치 사이즈 (총 인원 수)
+      "teamKill": 5, 팀 킬 수 TK
+      "totalFieldKill": 5, 전체 필드 킬 수
+      "accountLevel": 139, 계정 레벨
+
+      "killerUserNum": 781923, 킬러 유저 번호
+      "killer": "player", 킬러 정보
+      "killDetail": "아키하바라", 킬 상세(닉네임)
+      "causeOfDeath": "격투 액션", 사망 정보
+      "placeOfDeath": "130", 사망 지역
+      "killerCharacter": "Nicky", 킬러 캐릭터
+      "killerWeapon": "Glove", 킬러 무기
+      "killerUserNum2": 4881609, 킬러 유저 번호
+
+      "killer2": "player",
+      "killDetail2": "熊貓吃吃吃",
+      "causeOfDeath2": "엘레나 Q  - 크리스탈 엘레강스",
+      "placeOfDeath2": "60",
+      "killerCharacter2": "Elena",
+      "killerWeapon2": "Rapier",
+      "killerUserNum3": 0,
+
+
+      "fishingCount": 0, 낚시 횟수
+      "useEmoticonCount": 5, 이모티콘 사용 횟수
+      "expireDtm": "2025-11-10T02:05:35.035+0900", 만료 일시
+
+      "traitFirstCore": 7000401, 핵심 특성
+
+      "traitFirstSub": [ 서브 특성 1
+        7010901,
+        7011201
+      ],
+
+      "traitSecondSub": [ 서브 특성 2
+        7110101,
+        7110201
+      ],
+
+      "airSupplyOpenCount": [ 공중 보급품 개수 (등급별)
+        0, 
+        0, 
+        1, 
+        0,
+        0,
+        0,
+        0
+      ],
+
+
+      "foodCraftCount": [ 음식 제작 횟수 (등급별)
+        0,
+        0,
+        3,
+        0,
+        0,
+        0,
+        0
+      ],
+
+
+      "beverageCraftCount": [ 음료 제작 횟수 (등급별)
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+
+
+      "rankPoint": 4960, 랭크 포인트
+      "totalTurbineTakeOver": 0, 총 터빈 점령 수
+      "usedNormalHealPack": 0, 일반 치료팩 사용 수
+      "usedReinforcedHealPack": 0, 강화 치료팩 사용 수
+      "usedNormalShieldPack": 0, 일반 실드팩 사용 수
+      "usedReinforceShieldPack": 0, 강화 실드팩 사용 수
+
+      "totalVFCredits": [ 시간대별 VF 크레딧
+        57,
+        47,
+        65,
+        46,
+        66,
+        24,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+
+
+      "activelyGainedCredits": 70, 능동적으로 획득한 크레딧 ?
+      "usedVFCredits": [ 시간대 별 사용한 크레딧
+        0,
+        15,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+
+
+      "sumUsedVFCredits": 15, 사용한 총 크레딧
+      "craftMythic": 0,
+      "playerDeaths": 2, 사망 횟수
+      "killGamma": false, 감마 킬 여부
+      "scoredPoint": [ 획득 점수 (시간대별)
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+
+
+
+      "killDetails": "{}", 킬 상세 정보
+      "deathDetails": "{\"33\":1,\"50\":1}", 사망 상세 정보
+
+      "killsPhaseOne": 0, 초반 페이즈 킬 수
+      "killsPhaseTwo": 0, 중반 페이즈 킬 수
+      "killsPhaseThree": 0, 최종 페이즈 킬 수
+
+      "deathsPhaseOne": 1, 초반 페이즈 데스 수
+      "deathsPhaseTwo": 1, 중반 페이즈 데스 수
+      "deathsPhaseThree": 0, 최종 페이즈 데스 수
+
+      "usedPairLoop": 3, 페어 루프 사용 횟수 (아마도 유저 지정 루프인듯?)
+      "ccTimeToPlayer": 0.86666673, 플레이어에게 가한 군중제어 시간
+
+      "creditSource": { 크레딧 획득 원천
+        "PreliminaryPhase": 15, 예선 페이즈
+        "TimeElapsedCompensationByMiliSecond": 206, 시간 경과 보상
+        "KillChicken": 13, 닭 킬
+        "KillBat": 5, 박쥐 킬
+        "KioskRemoteDroneMySelf": 15, 원격 드론 사용
+        "TimeElapsedCreditBonusByMiliSecond": 15.1000214, 시간 경과 크레딧 보너스
+        "KillBoar": 5, 멧돼지 킬
+        "KillWolf": 10, 늑대 킬
+        "KillMutantChicken": 9, 변이 닭 킬
+        "KillRaven": 3, 까마귀 킬
+        "KillBear": 8, 곰 킬
+        "KillAssistDivideContribute": 10, 킬 어시스트 분배
+        "GoldSecurityConsoleAccess": 5, 보안 콘솔 접근 골드
+        "KillMutantBoar": 2 변이 멧돼지 킬
+      },
+
+
+
+      "boughtInfusion": "{}", 구매한 인퓨전
+      "itemTransferredConsole": [], 콘솔로 전송한 아이템 번호
+      "itemTransferredDrone": [ 드론으로 전송한 아이템 번호
+        401105
+      ],
+
+
+
+      "escapeState": 0, 탈출 여부
+      "totalDoubleKill": 0, 더블킬 수
+      "totalTripleKill": 0, 트리플킬 수
+      "totalQuadraKill": 0 쿼드라킬 수
+      "totalExtraKill": 0, 엑스트라킬 수
+
+
+      "collectItemForLog": [ 아이템 수집용 로그
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+
+
+
+      "equipFirstItemForLog": { 첫 번째 착용 아이템
+        "0": [
+          102410
+        ],
+        "1": [
+          202420
+        ],
+        "2": [
+          201417
+        ],
+        "3": [
+          203412
+        ],
+        "4": [
+          204401
+        ]
+      },
+
+
+
+==== 배틀존 ? ====
+      "battleZone1AreaCode": 0, 배틀존1 지역 코드
+      "battleZone1BattleMark": 0, 배틀존1 배틀 마크
+      "battleZone1ItemCode": [], 배틀존1 아이템 코드
+      "battleZone2AreaCode": 0, 배틀존2 지역코드
+      "battleZone2BattleMark": 0, 배틀존 2배틀 마크
+      "battleZone2ItemCode": [], 배틀존 2 아이템 코드
+      "battleZone3AreaCode": 0,
+      "battleZone3BattleMark": 0,
+      "battleZone3ItemCode": [],
+      "battleZonePlayerKill": 0,
+      "battleZoneDeaths": 0,
+      "battleZone1Winner": 0,
+      "battleZone2Winner": 0,
+      "battleZone3Winner": 0,
+      "battleZone1BattleMarkCount": 0,
+      "battleZone2BattleMarkCount": 0,
+      "battleZone3BattleMarkCount": 0,
+==============
+
+
+
+
+
+      "tacticalSkillGroup": 30, 전술 스킬 그룹
+      "tacticalSkillLevel": 1, 전술 스킬 레벨
+
+
+      "totalGainVFCredit": 306, 총 획득 크레딧
+      "killPlayerGainVFCredit": 0, 플레이어 킬로 획득한 크레딧
+      "killChickenGainVFCredit": 22, 닭 킬로 획득한 크레딧
+      "killBoarGainVFCredit": 7, 멧돼지 킬로 획득한 크레딧
+      "killWildDogGainVFCredit": 0, 들개 킬로 획득한 크레딧
+      "killWolfGainVFCredit": 10, 늑대 킬로 획득한 크레딧
+      "killBearGainVFCredit": 8, 곰 킬로 획득한 크레딧
+      "killOmegaGainVFCredit": 0, 오메가 킬로 획득한 크레딧
+      "killBatGainVFCredit": 5, 박쥐 킬로 획득한 크레딧
+      "killWicklineGainVFCredit": 0, 위클라인 킬로 획득한 크레딧
+      "killAlphaGainVFCredit": 0, 알파 킬로 획득한 크레딧
+      "killItemBountyGainVFCredit": 0, 아이템 현상금으로 획득한 크레딧
+      "killDroneGainVFCredit": 0, 드론 킬로 획득한 크레딧
+      "killGammaGainVFCredit": 0, 감마 킬로 획득한 크레딧
+      "killTurretGainVFCredit": 0, 터렛 킬로 획득한 크레딧
+      "itemShredderGainVFCredit": 0, 아이템 분해로 획득한 크레딧
+      "totalUseVFCredit": 15, 총 사용 크레딧
+      "remoteDroneUseVFCreditMySelf": 15, 본인 원격 드론 사용 크레딧
+      "remoteDroneUseVFCreditAlly": 0, 아군 원격 사용 크레딧
+      "transferConsoleFromMaterialUseVFCredit": 0,  재료 전송하는데 사용한 크레딧
+      "transferConsoleFromEscapeKeyUseVFCredit": 0, 탈출킷에 사용한 크레딧
+      "transferConsoleFromRevivalUseVFCredit": 0, 부활에 사용한 크레딧
+      "tacticalSkillUpgradeUseVFCredit": 0, 전술 강화 모듈에 사용한 크레딧
+      "infusionReRollUseVFCredit": 0,  인퓨전 리롤 사용 크레딧
+      "infusionTraitUseVFCredit": 0, 인퓨전 특성 사용 크레딧
+      "infusionRelicUseVFCredit": 0, 인퓨전 렐릭 사용 크레딧
+      "infusionStoreUseVFCredit": 0, 인퓨전 상점 사용 크레딧
+
+
+      "teamElimination": 0, 제거한 팀 수
+      "teamDown": 5, 팀 다운 횟수
+      "teamBattleZoneDown": 0, 팀 배틀존 다운
+      "teamRepeatDown": 0, 팀 반복 다운
+
+
+      "adaptiveForce": 0, 적응형 능력치
+      "adaptiveForceAttack": 0, 적응형 공격력
+      "adaptiveForceAmplify": 0, 적응형 증폭
+      "skillAmp": 0, 스킬 증폭
+
+
+      "campFireCraftUncommon": 0, 캠프파이어 일반 등급 제작
+      "campFireCraftRare": 1, 캠프파이어 레어 등급 제작
+      "campFireCraftEpic": 0, 캠프파이어 에픽 등급 제작
+      "campFireCraftLegendary": 0, 캠프파이어 레전더리 등급 제작
+      "cobaltRandomPickRemoveCharacter": 0, 코발트 랜덤 픽 캐릭터 제거
+
+      "tacticalSkillUseCount": 3, 전술 스킬 사용 횟수
+      "creditRevivalCount": 0, 크레딧 부활 횟수
+      "creditRevivedOthersCount": 0, 다른 플레이어를 크레딧으로 부활 시킨 횟수
+      "timeSpentInBriefingRoom": 64, 브리핑룸에서 보낸 시간
+      "IsLeavingBeforeCreditRevivalTerminate": false, 크레딧 부활 종료전 나가기 여부
+
+      "crGetAnimal": 44, 동물에서 획득한 크레딧
+      "crGetMutant": 11, 변이체에서 획득한 크레딧
+      "crGetPhaseStart": 0, 페이즈 시작으로 획득한 크레딧
+      "crGetKill": 0, 킬에서 획득한 크레딧
+      "crGetAssist": 0, 어시스트에서 획득한 크레딧
+      "crGetTimeElapsed": 206, 시간 경과로 획득한 크레딧
+      "crGetCreditBonus": 15, 크레딧 보너스
+      "crUseRemoteDrone": 15, 원격 드론 사용 크레딧
+      "crUseUpgradeTacticalSkill": 0, 전술 강화 모듈에 사용한 크레딧
+      "crUseTreeOfLife": 0, 생명의 나무에 사용한 크레딧
+      "crUseMeteorite": 0, 운석에 사용한 크레딧
+      "crUseMythril": 0, 미스릴에 사용한 크레딧
+      "crUseForceCore": 0, 포스 코어에 사용한 크레딧
+      "crUseVFBloodSample": 0, 혈액 샘플에 사용한 크레딧
+      "crUseActivationModule": 0, 전술 강화 모듈에 ? 사용한 크레딧
+      "crUseRootkit": 0, 탈출킷에 사용한 크레딧
+
+
+      "mmrGainInGame": 18, 게임 내 획득한 점수
+      "mmrLossEntryCost": -42, 입장료 점수
+
+      "premadeMatchingType": 1, 사전 조 매칭 타입
+
+      "viewContribution": 1, 시야 기여도
+      "useReconDrone": 0, 정찰 드론 사용 횟수
+      "useEmpDrone": 0, EMP 드론 사용 횟수
+      "exceptPreMadeTeam": false, 듀오 매칭 제외 여부
+
+
+      "terminateCount": 0, 터미네이트 수
+      "clutchCount": 0, 클러치 수
+      "unknownKill": 0, 미확인 킬 수
+
+      "mainWeather": 10001, 주 날씨
+      "subWeather": 10504, 보조 날씨
+
+      "activeInstallation": { 활성 설치물
+        "3": 1,
+        "4": 1
+      },
+
+
+      "useGuideRobot": 0, 루미 사용 횟수
+      "guideRobotRadial": 0, 
+      "guideRobotFlagShip": 0,
+      "guideRobotSignature": 0,
+      "crGetByGuideRobot": 0,
+      "damageToGuideRobot": 0,
+
+
+
+      "getBuffCubeRed": 0, 레드 큐브 획득
+      "getBuffCubePurple": 0, 보라 큐브 획득
+      "getBuffCubeGreen": 0, 초록 큐브 획득
+      "getBuffCubeGold": 0, 금색 큐브 획득
+      "getBuffCubeSkyBlue": 0, 하늘색 큐브 획득
+      "sumGetBuffCube": 0, 총 큐브 버프 획득 수
+
+
+      "squadRumbleRank": 8, 스쿼드 럼블 순위
+
+
+      "teamDownCanNotEliminate": 3, 
+      "teamDownCanEliminate": 2,
+      "teamRepeatDownCanNotEliminate": 0,
+      "teamRepeatDownCanEliminate": 0,
+      "terminateCountCanNotEliminate": 0,
+
+
+
+      "breakCount": 0, 브레이크 횟수
+
+      "enterDimensionRift": 0, 균열 입장 횟수
+      "enterDimensionEmpoweredRift": 0, 상남자존 입장 횟수
+      "winFromDimensionRift": 0, 균열 승리 수
+      "winFromDimensionEmpoweredRift": 0, 상남자존 승리 수
+      "enterTurbulentRift": 0, 격류 진입 수
+
+      "totalTKPerMin": [ 분당 총 팀킬
+        0,
+        2,
+        2,
+        2,
+        4,
+        5,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "isLeavingBeforeCreditRevivalTerminate": false 크레딧 부활 전 나가기 여부
+    },
