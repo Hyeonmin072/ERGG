@@ -1,41 +1,70 @@
-HELP.md
-.gradle
+# ============================================================
+# ERGG - .gitignore
+# ============================================================
+
+
+# ── 환경 변수 (절대 커밋 금지) ───────────────────────────────
+.env
+.env.local
+.env.*.local
+backend/.env
+frontend/.env
+frontend/.env.local
+frontend/.env.production.local
+frontend/.env.development.local
+
+
+# ── Python / FastAPI ─────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
 build/
-!gradle/wrapper/gradle-wrapper.jar
-!**/src/main/**/build/
-!**/src/test/**/build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+*.log
 
-### STS ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
-bin/
-!**/src/main/**/bin/
-!**/src/test/**/bin/
 
-### IntelliJ IDEA ###
-.idea
-*.iws
-*.iml
-*.ipr
-out/
-!**/src/main/**/out/
-!**/src/test/**/out/
+# ── Node.js / Next.js ────────────────────────────────────────
+node_modules/
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/.vercel/
+*.tsbuildinfo
+.npm
+.eslintcache
 
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
 
-### VS Code ###
+# ── IDE / 에디터 ─────────────────────────────────────────────
+.idea/
 .vscode/
+*.swp
+*.swo
+*.iml
+*.iws
+*.ipr
+.DS_Store
+Thumbs.db
 
 
-## Claude ###
+# ── Docker / DB 볼륨 ─────────────────────────────────────────
+postgres-data/
+redis-data/
+
+
+# ── 기타 ─────────────────────────────────────────────────────
+*.pem
+*.key
+*.cert
 /claude

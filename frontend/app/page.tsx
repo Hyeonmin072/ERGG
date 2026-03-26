@@ -13,7 +13,7 @@ const FEATURES = [
     desc: "최근 20게임 기반 6가지 플레이 스타일 분석 — 전투·결투·사냥·시야·마스터리·생존",
   },
   {
-    icon: <Zap size={22} style={{ color: "#00d4ff" }} />,
+    icon: <Zap size={22} style={{ color: "var(--home-accent)" }} />,
     title: "나쟈의 독설",
     desc: "AI가 당신의 패배 원인을 냉정하게 분석합니다. 감정 없이 데이터로만 판단합니다.",
   },
@@ -43,8 +43,13 @@ export default function HomePage() {
     <div
       className="flex flex-col items-center min-h-screen pt-24 pb-20 px-4 relative overflow-hidden"
       style={{
-        background:
-          "radial-gradient(ellipse 80% 50% at 50% 0%, rgba(0,212,255,0.07) 0%, transparent 70%)",
+        ["--home-accent" as any]: "rgba(255,255,255,0.92)",
+        ["--home-accent-soft" as any]: "rgba(255,255,255,0.22)",
+        ["--home-border" as any]: "rgba(255,255,255,0.10)",
+        background: [
+          "radial-gradient(ellipse 85% 55% at 50% 0%, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.00) 62%)",
+          "linear-gradient(180deg, rgba(10,14,26,0.00) 0%, rgba(10,14,26,0.35) 55%, rgba(10,14,26,0.65) 100%)",
+        ].join(", "),
       }}
     >
       {/* ── 회전 정이십면체 배경 ── */}
@@ -72,7 +77,8 @@ export default function HomePage() {
           className="text-6xl font-black tracking-widest mb-3 neon-text"
           style={{
             letterSpacing: "0.2em",
-            textShadow: "0 0 30px rgba(0,212,255,0.6), 0 2px 12px rgba(0,0,0,0.9)",
+            color: "var(--home-accent)",
+            textShadow: "0 0 28px rgba(255,255,255,0.18), 0 2px 12px rgba(0,0,0,0.92)",
           }}
         >
           ER.GG
@@ -80,7 +86,7 @@ export default function HomePage() {
         <p
           className="text-lg mb-1"
           style={{
-            color: "#cbd5e1",
+            color: "rgba(226,232,240,0.95)",
             textShadow: "0 1px 8px rgba(0,0,0,0.95), 0 0 20px rgba(0,0,0,0.8)",
           }}
         >
@@ -109,14 +115,15 @@ export default function HomePage() {
           <div
             className="flex items-center rounded-2xl px-5 py-4 gap-3 transition-all duration-200"
             style={{
-              backgroundColor: "var(--bg-card)",
+              background: "linear-gradient(180deg, rgba(20,29,53,0.78) 0%, rgba(20,29,53,0.58) 100%)",
               border: focused
-                ? "1.5px solid rgba(0,212,255,0.7)"
-                : "1.5px solid var(--border)",
-              boxShadow: focused ? "0 0 24px rgba(0,212,255,0.15)" : "none",
+                ? "1.5px solid rgba(255,255,255,0.28)"
+                : "1.5px solid var(--home-border)",
+              boxShadow: focused ? "0 0 0 6px rgba(255,255,255,0.06), 0 18px 50px rgba(0,0,0,0.35)" : "0 18px 50px rgba(0,0,0,0.30)",
+              backdropFilter: "blur(10px)",
             }}
           >
-            <Search size={18} style={{ color: focused ? "var(--neon-cyan)" : "var(--text-secondary)" }} />
+            <Search size={18} style={{ color: focused ? "var(--home-accent)" : "var(--text-secondary)" }} />
             <input
               type="text"
               placeholder="닉네임을 입력하세요..."
@@ -134,10 +141,12 @@ export default function HomePage() {
               className="px-5 py-2 rounded-xl text-sm font-bold transition-all duration-200"
               style={{
                 background: query.trim()
-                  ? "linear-gradient(135deg, #00d4ff, #0080ff)"
-                  : "var(--border)",
-                color: query.trim() ? "#fff" : "var(--text-secondary)",
+                  ? "linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.72))"
+                  : "rgba(255,255,255,0.08)",
+                color: query.trim() ? "rgba(10,14,26,0.95)" : "var(--text-secondary)",
                 cursor: query.trim() ? "pointer" : "not-allowed",
+                border: query.trim() ? "1px solid rgba(255,255,255,0.25)" : "1px solid var(--home-border)",
+                boxShadow: query.trim() ? "0 10px 28px rgba(0,0,0,0.35)" : "none",
               }}
             >
               검색
@@ -153,9 +162,10 @@ export default function HomePage() {
               onClick={() => handleSearch(nick)}
               className="text-xs px-3 py-1 rounded-full transition-colors"
               style={{
-                backgroundColor: "var(--bg-card)",
+                background: "rgba(20,29,53,0.55)",
                 color: "var(--text-secondary)",
-                border: "1px solid var(--border)",
+                border: "1px solid var(--home-border)",
+                backdropFilter: "blur(8px)",
               }}
             >
               {nick}
@@ -172,11 +182,20 @@ export default function HomePage() {
         {FEATURES.map((f, i) => (
           <div
             key={i}
-            className="card card-hover p-5 flex items-start gap-4 cursor-pointer group"
+            className="card card-hover home-card p-5 flex items-start gap-4 cursor-pointer group"
+            style={{
+              background: "linear-gradient(180deg, rgba(20,29,53,0.70) 0%, rgba(15,22,41,0.55) 100%)",
+              borderColor: "var(--home-border)",
+              boxShadow: "0 18px 50px rgba(0,0,0,0.28)",
+              backdropFilter: "blur(10px)",
+            }}
           >
             <div
               className="mt-0.5 p-2 rounded-lg"
-              style={{ backgroundColor: "var(--bg-secondary)" }}
+              style={{
+                background: "rgba(255,255,255,0.06)",
+                border: "1px solid rgba(255,255,255,0.08)",
+              }}
             >
               {f.icon}
             </div>
@@ -204,14 +223,15 @@ export default function HomePage() {
         className="mt-12 flex items-center gap-2 px-4 py-2 rounded-full text-xs relative"
         style={{
           zIndex: 1,
-          backgroundColor: "var(--bg-card)",
-          border: "1px solid rgba(0,212,255,0.2)",
+          background: "rgba(20,29,53,0.55)",
+          border: "1px solid var(--home-border)",
           color: "var(--text-secondary)",
+          backdropFilter: "blur(8px)",
         }}
       >
         <div
           className="w-2 h-2 rounded-full pulse-neon"
-          style={{ backgroundColor: "var(--neon-cyan)" }}
+          style={{ backgroundColor: "var(--home-accent)" }}
         />
         Asia 서버 전용 · 실시간 데이터
       </div>

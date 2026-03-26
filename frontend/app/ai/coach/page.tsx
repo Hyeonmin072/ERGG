@@ -1,6 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Zap, User, ChevronRight, AlertCircle } from "lucide-react";
+import { getAiCoach } from "@/lib/api";
 
 const MOCK_FEEDBACK = `
 [최근 20게임 분석 결과 — 직접적으로 말하겠습니다]
@@ -23,20 +24,41 @@ const MOCK_FEEDBACK = `
 당신이 바뀌지 않으면 MMR은 계속 내려갑니다.
 `.trim();
 
+const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "true";
+
 export default function CoachPage() {
   const [nickname, setNickname] = useState("");
   const [gameCount, setGameCount] = useState(20);
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
 
+  const accent = useMemo(() => "rgba(255,255,255,0.92)", []);
+
+  useEffect(() => {
+    // Todo : 백엔드 연동 시 URL 쿼리(userNum)로 자동 분석 지원
+  }, []);
+
   const handleAnalyze = () => {
     if (!nickname.trim()) return;
     setLoading(true);
     setFeedback(null);
-    setTimeout(() => {
-      setLoading(false);
-      setFeedback(MOCK_FEEDBACK);
-    }, 2200);
+    (async () => {
+      try {
+        if (USE_MOCK) {
+          await new Promise((r) => setTimeout(r, 900));
+          setFeedback(MOCK_FEEDBACK);
+          return;
+        }
+        // Todo : nickname → userNum 검색(searchPlayer) 후 getAiCoach 호출로 교체
+        // 현재 백엔드 스펙은 user_num 기반이라 임시 더미를 유지합니다.
+        await getAiCoach({ user_num: 0, game_count: gameCount });
+        setFeedback(MOCK_FEEDBACK);
+      } catch {
+        setFeedback(MOCK_FEEDBACK);
+      } finally {
+        setLoading(false);
+      }
+    })();
   };
 
   return (
@@ -45,9 +67,13 @@ export default function CoachPage() {
       <div className="flex items-center gap-3 mb-8">
         <div
           className="p-2.5 rounded-xl"
-          style={{ background: "linear-gradient(135deg, #7c3aed44, #00d4ff22)" }}
+          style={{
+            background: "linear-gradient(135deg, rgba(124,58,237,0.28), rgba(255,255,255,0.10))",
+            border: "1px solid rgba(255,255,255,0.10)",
+            backdropFilter: "blur(10px)",
+          }}
         >
-          <Zap size={20} style={{ color: "#00d4ff" }} />
+          <Zap size={20} style={{ color: accent }} />
         </div>
         <div>
           <h1 className="text-xl font-black" style={{ color: "var(--text-primary)" }}>
@@ -60,7 +86,15 @@ export default function CoachPage() {
       </div>
 
       {/* Input form */}
-      <div className="card p-6 mb-6">
+      <div
+        className="card p-6 mb-6"
+        style={{
+          background: "linear-gradient(180deg, rgba(20,29,53,0.70) 0%, rgba(15,22,41,0.55) 100%)",
+          borderColor: "rgba(255,255,255,0.10)",
+          boxShadow: "0 18px 50px rgba(0,0,0,0.28)",
+          backdropFilter: "blur(10px)",
+        }}
+      >
         <div className="flex flex-col gap-4">
           <div>
             <label className="text-xs font-bold mb-2 block" style={{ color: "var(--text-secondary)" }}>
@@ -68,7 +102,11 @@ export default function CoachPage() {
             </label>
             <div
               className="flex items-center gap-2 rounded-xl px-4 py-3"
-              style={{ backgroundColor: "var(--bg-secondary)", border: "1px solid var(--border)" }}
+              style={{
+                backgroundColor: "rgba(20,29,53,0.55)",
+                border: "1px solid rgba(255,255,255,0.10)",
+                backdropFilter: "blur(8px)",
+              }}
             >
               <User size={14} style={{ color: "var(--text-secondary)" }} />
               <input
@@ -94,9 +132,10 @@ export default function CoachPage() {
                   onClick={() => setGameCount(n)}
                   className="px-4 py-2 rounded-lg text-sm font-bold transition-all"
                   style={{
-                    backgroundColor: gameCount === n ? "var(--neon-cyan)" : "var(--bg-secondary)",
-                    color: gameCount === n ? "#0a0e1a" : "var(--text-secondary)",
-                    border: `1px solid ${gameCount === n ? "var(--neon-cyan)" : "var(--border)"}`,
+                    backgroundColor: gameCount === n ? "rgba(255,255,255,0.86)" : "rgba(20,29,53,0.55)",
+                    color: gameCount === n ? "rgba(10,14,26,0.95)" : "var(--text-secondary)",
+                    border: `1px solid ${gameCount === n ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.10)"}`,
+                    boxShadow: gameCount === n ? "0 10px 28px rgba(0,0,0,0.32)" : "none",
                   }}
                 >
                   {n}게임
@@ -111,10 +150,12 @@ export default function CoachPage() {
             className="flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-all"
             style={{
               background: nickname.trim() && !loading
-                ? "linear-gradient(135deg, #7c3aed, #00d4ff)"
-                : "var(--border)",
-              color: nickname.trim() && !loading ? "#fff" : "var(--text-secondary)",
+                ? "linear-gradient(135deg, rgba(124,58,237,0.95), rgba(255,255,255,0.78))"
+                : "rgba(255,255,255,0.08)",
+              color: nickname.trim() && !loading ? "rgba(10,14,26,0.95)" : "var(--text-secondary)",
               cursor: nickname.trim() && !loading ? "pointer" : "not-allowed",
+              border: nickname.trim() && !loading ? "1px solid rgba(255,255,255,0.18)" : "1px solid rgba(255,255,255,0.10)",
+              boxShadow: nickname.trim() && !loading ? "0 18px 55px rgba(0,0,0,0.34)" : "none",
             }}
           >
             {loading ? (
@@ -153,12 +194,21 @@ export default function CoachPage() {
       {feedback && (
         <div
           className="card p-6 fade-in"
-          style={{ borderColor: "rgba(124,58,237,0.4)", boxShadow: "0 0 20px rgba(124,58,237,0.1)" }}
+          style={{
+            borderColor: "rgba(255,255,255,0.12)",
+            boxShadow: "0 18px 55px rgba(0,0,0,0.34)",
+            background: "linear-gradient(180deg, rgba(20,29,53,0.70) 0%, rgba(15,22,41,0.55) 100%)",
+            backdropFilter: "blur(10px)",
+          }}
         >
           <div className="flex items-center gap-2 mb-4">
             <div
               className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-black"
-              style={{ background: "linear-gradient(135deg, #7c3aed, #00d4ff)", color: "#fff" }}
+              style={{
+                background: "linear-gradient(135deg, rgba(124,58,237,0.90), rgba(255,255,255,0.75))",
+                color: "rgba(10,14,26,0.95)",
+                border: "1px solid rgba(255,255,255,0.18)",
+              }}
             >
               N
             </div>
@@ -173,7 +223,7 @@ export default function CoachPage() {
           >
             {feedback.split("**").map((part, i) =>
               i % 2 === 1 ? (
-                <strong key={i} style={{ color: "var(--neon-cyan)" }}>{part}</strong>
+                <strong key={i} style={{ color: accent }}>{part}</strong>
               ) : (
                 <span key={i}>{part}</span>
               )

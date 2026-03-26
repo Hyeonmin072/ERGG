@@ -100,9 +100,9 @@ function Icosahedron() {
       {/* 엣지 라인 */}
       <lineSegments ref={edgesRef} geometry={edgesGeo}>
         <lineBasicMaterial
-          color="#c8ebff"
+          color="#ffffff"
           transparent
-          opacity={0.7}
+          opacity={0.52}
           depthWrite={false}
         />
       </lineSegments>
@@ -110,7 +110,7 @@ function Icosahedron() {
       {/* 네온 글로우 엣지 (살짝 큰 크기) */}
       <mesh ref={glowRef} geometry={geo} scale={1.003}>
         <meshBasicMaterial
-          color="#00d4ff"
+          color="#ffffff"
           transparent
           opacity={0.0}
           wireframe
@@ -157,7 +157,7 @@ function FadingFaces() {
     faceMeshes.map(
       () =>
         new THREE.MeshBasicMaterial({
-          color: "#c8ebff",
+          color: "#ffffff",
           transparent: true,
           opacity: 0,
           side: THREE.FrontSide,   // 뒷면 컬링 — 앞면만 표시
@@ -228,10 +228,10 @@ function OrbitParticles() {
       <group ref={innerRef}>
         <Points positions={innerPositions}>
           <PointMaterial
-            color="#00d4ff"
+            color="#ffffff"
             size={0.045}
             transparent
-            opacity={0.9}
+            opacity={0.75}
             sizeAttenuation
             depthWrite={false}
           />
@@ -270,7 +270,7 @@ function FloatParticles() {
     }));
 
     const palette = [
-      [0, 0.83, 1],       // cyan
+      [0.96, 0.97, 1],    // soft white
       [0.66, 0.55, 0.98], // purple
       [0, 1, 0.53],       // green
     ];
@@ -346,7 +346,7 @@ function Streaks() {
         )
       );
       const mat = new THREE.LineBasicMaterial({
-        color: i % 2 === 0 ? "#00d4ff" : "#a78bfa",
+        color: i % 2 === 0 ? "#ffffff" : "#a78bfa",
         transparent: true,
         opacity: 0,
         depthWrite: false,
@@ -399,7 +399,7 @@ function Rings() {
     <>
       <mesh ref={ring1Ref}>
         <ringGeometry args={[1.52, 1.54, 128]} />
-        <meshBasicMaterial color="#00d4ff" transparent opacity={0.12} side={THREE.DoubleSide} depthWrite={false} />
+        <meshBasicMaterial color="#ffffff" transparent opacity={0.09} side={THREE.DoubleSide} depthWrite={false} />
       </mesh>
       <mesh ref={ring2Ref}>
         <ringGeometry args={[1.74, 1.76, 128]} />
@@ -422,7 +422,7 @@ function CenterGlow() {
   return (
     <mesh ref={ref}>
       <sphereGeometry args={[0.06, 16, 16]} />
-      <meshBasicMaterial color="#00d4ff" transparent opacity={0.8} depthWrite={false} />
+      <meshBasicMaterial color="#ffffff" transparent opacity={0.65} depthWrite={false} />
     </mesh>
   );
 }
@@ -433,7 +433,7 @@ function Lights() {
     <>
       <ambientLight intensity={0.3} />
       <directionalLight position={[2, 3, 4]} intensity={1.2} color="#ffffff" />
-      <pointLight position={[-2, -2, 2]} intensity={0.5} color="#00d4ff" />
+      <pointLight position={[-2, -2, 2]} intensity={0.42} color="#ffffff" />
       <pointLight position={[2, 2, -2]} intensity={0.3} color="#7c3aed" />
     </>
   );

@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { Map, ChevronRight, MapPin, Sword, Package } from "lucide-react";
+import { getRouteRecommendation } from "@/lib/api";
 
 const CHARACTER_OPTIONS = [
   { num: 12, name: "현우" }, { num: 13, name: "나쟈" }, { num: 35, name: "엘레나" },
@@ -8,7 +9,7 @@ const CHARACTER_OPTIONS = [
 ];
 
 const STYLE_OPTIONS = ["초반 교전", "안전한 성장", "사냥 위주", "팀 지원"];
-const WEAPON_OPTIONS = ["검", "둔기", "총기", "활", "단검", "권투글러브", "창", "단검", "라피어"];
+const WEAPON_OPTIONS = ["검", "둔기", "총기", "활", "단검", "권투글러브", "창", "라피어"];
 
 const MOCK_ROUTE = {
   routeId: 12299,
@@ -33,16 +34,32 @@ export default function RoutePage() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<typeof MOCK_ROUTE | null>(null);
 
+  const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "true";
   const isReady = characterNum !== null && style !== "";
 
   const handleSubmit = () => {
     if (!isReady) return;
     setLoading(true);
     setResult(null);
-    setTimeout(() => {
-      setLoading(false);
-      setResult(MOCK_ROUTE);
-    }, 1800);
+    (async () => {
+      try {
+        if (USE_MOCK) {
+          await new Promise((r) => setTimeout(r, 800));
+          setResult(MOCK_ROUTE);
+          return;
+        }
+        const prompt = customQuery.trim()
+          ? customQuery.trim()
+          : `실험체:${characterNum}, 스타일:${style}, 무기:${weapon || "상관없음"} — 추천 루트 알려줘`;
+        // Todo : 백엔드 응답(response)을 구조화(routeId/startArea/...)해서 UI에 매핑
+        await getRouteRecommendation(prompt);
+        setResult(MOCK_ROUTE);
+      } catch {
+        setResult(MOCK_ROUTE);
+      } finally {
+        setLoading(false);
+      }
+    })();
   };
 
   return (
@@ -66,13 +83,25 @@ export default function RoutePage() {
       </div>
 
       {/* Natural language input */}
-      <div className="card p-5 mb-5">
+      <div
+        className="card p-5 mb-5"
+        style={{
+          background: "linear-gradient(180deg, rgba(20,29,53,0.70) 0%, rgba(15,22,41,0.55) 100%)",
+          borderColor: "rgba(255,255,255,0.10)",
+          boxShadow: "0 18px 50px rgba(0,0,0,0.28)",
+          backdropFilter: "blur(10px)",
+        }}
+      >
         <label className="text-xs font-bold mb-2 block" style={{ color: "var(--text-secondary)" }}>
           자연어로 요청하기 (선택)
         </label>
         <div
           className="flex items-center gap-2 rounded-xl px-4 py-3 mb-2"
-          style={{ backgroundColor: "var(--bg-secondary)", border: "1px solid var(--border)" }}
+          style={{
+            backgroundColor: "rgba(20,29,53,0.55)",
+            border: "1px solid rgba(255,255,255,0.10)",
+            backdropFilter: "blur(8px)",
+          }}
         >
           <input
             type="text"
@@ -89,7 +118,15 @@ export default function RoutePage() {
       </div>
 
       {/* Form */}
-      <div className="card p-6 mb-6">
+      <div
+        className="card p-6 mb-6"
+        style={{
+          background: "linear-gradient(180deg, rgba(20,29,53,0.70) 0%, rgba(15,22,41,0.55) 100%)",
+          borderColor: "rgba(255,255,255,0.10)",
+          boxShadow: "0 18px 50px rgba(0,0,0,0.28)",
+          backdropFilter: "blur(10px)",
+        }}
+      >
         <div className="flex flex-col gap-5">
           {/* Character */}
           <div>
@@ -103,9 +140,9 @@ export default function RoutePage() {
                   onClick={() => setCharacterNum(c.num)}
                   className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
                   style={{
-                    backgroundColor: characterNum === c.num ? "rgba(0,212,255,0.2)" : "var(--bg-secondary)",
-                    color: characterNum === c.num ? "var(--neon-cyan)" : "var(--text-secondary)",
-                    border: `1px solid ${characterNum === c.num ? "rgba(0,212,255,0.5)" : "var(--border)"}`,
+                    backgroundColor: characterNum === c.num ? "rgba(255,255,255,0.16)" : "rgba(20,29,53,0.55)",
+                    color: characterNum === c.num ? "rgba(255,255,255,0.92)" : "var(--text-secondary)",
+                    border: `1px solid ${characterNum === c.num ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.10)"}`,
                   }}
                 >
                   {c.name}
@@ -192,7 +229,12 @@ export default function RoutePage() {
       {result && (
         <div
           className="card p-6 fade-in"
-          style={{ borderColor: "rgba(255,167,38,0.4)", boxShadow: "0 0 20px rgba(255,167,38,0.08)" }}
+          style={{
+            borderColor: "rgba(255,255,255,0.10)",
+            boxShadow: "0 18px 55px rgba(0,0,0,0.34)",
+            background: "linear-gradient(180deg, rgba(20,29,53,0.70) 0%, rgba(15,22,41,0.55) 100%)",
+            backdropFilter: "blur(10px)",
+          }}
         >
           <h2 className="font-bold text-sm mb-5" style={{ color: "#ffa726" }}>
             추천 루트
@@ -200,7 +242,11 @@ export default function RoutePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
             <div
               className="p-3 rounded-lg flex items-center gap-3"
-              style={{ backgroundColor: "var(--bg-secondary)" }}
+              style={{
+                backgroundColor: "rgba(20,29,53,0.55)",
+                border: "1px solid rgba(255,255,255,0.10)",
+                backdropFilter: "blur(8px)",
+              }}
             >
               <MapPin size={16} style={{ color: "#ffa726" }} />
               <div>
@@ -212,9 +258,13 @@ export default function RoutePage() {
             </div>
             <div
               className="p-3 rounded-lg flex items-center gap-3"
-              style={{ backgroundColor: "var(--bg-secondary)" }}
+              style={{
+                backgroundColor: "rgba(20,29,53,0.55)",
+                border: "1px solid rgba(255,255,255,0.10)",
+                backdropFilter: "blur(8px)",
+              }}
             >
-              <Sword size={16} style={{ color: "var(--neon-cyan)" }} />
+              <Sword size={16} style={{ color: "rgba(255,255,255,0.92)" }} />
               <div>
                 <div className="text-xs" style={{ color: "var(--text-secondary)" }}>전술 스킬</div>
                 <div className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>

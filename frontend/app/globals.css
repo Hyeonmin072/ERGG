@@ -5,6 +5,7 @@
   --bg-secondary: #0f1629;
   --bg-card: #141d35;
   --border: #1e2d4f;
+  /* 기본 강조색(기존 네온 시안) — 메인에서는 로컬로 화이트로 오버라이드 */
   --neon-cyan: #00d4ff;
   --neon-purple: #7c3aed;
   --neon-green: #00ff88;
@@ -48,6 +49,12 @@ body {
   box-shadow: 0 4px 20px rgba(0, 212, 255, 0.1);
 }
 
+/* 메인(홈) 전용: 하늘색(시안) 글로우 제거 → 화이트 글로우 */
+.home-card.card-hover:hover {
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow: 0 18px 55px rgba(0, 0, 0, 0.34), 0 0 0 6px rgba(255, 255, 255, 0.04);
+}
+
 /* Tier colors */
 .tier-titan    { color: #ffd700; }
 .tier-immortal { color: #e040fb; }
@@ -78,12 +85,12 @@ body {
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
 /* Input focus */
-input:focus { outline: none; box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.4); }
+input:focus { outline: none; box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.18); }
 
 /* Animation */
 @keyframes pulse-neon {
-  0%, 100% { box-shadow: 0 0 5px rgba(0, 212, 255, 0.3); }
-  50%       { box-shadow: 0 0 20px rgba(0, 212, 255, 0.6); }
+  0%, 100% { box-shadow: 0 0 6px rgba(255, 255, 255, 0.20); }
+  50%       { box-shadow: 0 0 22px rgba(255, 255, 255, 0.40); }
 }
 
 .pulse-neon { animation: pulse-neon 2s ease-in-out infinite; }

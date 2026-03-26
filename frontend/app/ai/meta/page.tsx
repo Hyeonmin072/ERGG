@@ -1,9 +1,27 @@
 "use client";
+import { useEffect, useMemo, useState } from "react";
 import { BarChart2, TrendingUp, Swords, Calendar } from "lucide-react";
 import { MOCK_META } from "@/lib/mock";
+import { getMetaBriefing } from "@/lib/api";
+import type { MetaBriefing } from "@/lib/types";
 
 export default function MetaPage() {
-  const meta = MOCK_META;
+  const accent = useMemo(() => "rgba(255,255,255,0.92)", []);
+  const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "true";
+  const [meta, setMeta] = useState<MetaBriefing>(MOCK_META);
+
+  useEffect(() => {
+    if (USE_MOCK) return;
+    (async () => {
+      try {
+        const res = await getMetaBriefing();
+        // Todo : 백엔드에서 topPicks/topWinRate 등 구조화 데이터를 내려주면 MOCK_META 대체
+        setMeta((prev) => ({ ...prev, date: res.date, summary: res.briefing }));
+      } catch {
+        // fallback: MOCK_META 유지
+      }
+    })();
+  }, [USE_MOCK]);
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8 fade-in">
@@ -26,9 +44,10 @@ export default function MetaPage() {
         <div
           className="ml-auto flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full"
           style={{
-            backgroundColor: "var(--bg-card)",
-            border: "1px solid var(--border)",
+            backgroundColor: "rgba(20,29,53,0.55)",
+            border: "1px solid rgba(255,255,255,0.10)",
             color: "var(--text-secondary)",
+            backdropFilter: "blur(8px)",
           }}
         >
           <Calendar size={11} />
@@ -42,7 +61,8 @@ export default function MetaPage() {
         style={{
           borderColor: "rgba(0,255,136,0.25)",
           boxShadow: "0 0 20px rgba(0,255,136,0.05)",
-          background: "linear-gradient(135deg, var(--bg-card), rgba(0,255,136,0.03))",
+          background: "linear-gradient(180deg, rgba(20,29,53,0.70) 0%, rgba(15,22,41,0.55) 100%)",
+          backdropFilter: "blur(10px)",
         }}
       >
         <div className="flex items-center gap-2 mb-3">
@@ -61,9 +81,17 @@ export default function MetaPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Top Pick Rate */}
-        <div className="card p-5">
+        <div
+          className="card p-5"
+          style={{
+            background: "linear-gradient(180deg, rgba(20,29,53,0.70) 0%, rgba(15,22,41,0.55) 100%)",
+            borderColor: "rgba(255,255,255,0.10)",
+            boxShadow: "0 18px 50px rgba(0,0,0,0.28)",
+            backdropFilter: "blur(10px)",
+          }}
+        >
           <div className="flex items-center gap-2 mb-4">
-            <TrendingUp size={14} style={{ color: "var(--neon-cyan)" }} />
+            <TrendingUp size={14} style={{ color: accent }} />
             <h2 className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
               상위 픽률
             </h2>
@@ -87,19 +115,19 @@ export default function MetaPage() {
                     <span className="text-xs font-bold truncate" style={{ color: "var(--text-primary)" }}>
                       {item.characterName}
                     </span>
-                    <span className="text-xs font-bold" style={{ color: "var(--neon-cyan)" }}>
+                    <span className="text-xs font-bold" style={{ color: accent }}>
                       {item.pickRate}%
                     </span>
                   </div>
                   <div
                     className="h-1 rounded-full"
-                    style={{ backgroundColor: "var(--border)" }}
+                    style={{ backgroundColor: "rgba(255,255,255,0.10)" }}
                   >
                     <div
                       className="h-1 rounded-full"
                       style={{
                         width: `${(item.pickRate / meta.topPicks[0].pickRate) * 100}%`,
-                        background: "linear-gradient(90deg, rgba(0,212,255,0.5), var(--neon-cyan))",
+                        background: "linear-gradient(90deg, rgba(255,255,255,0.20), rgba(255,255,255,0.85))",
                       }}
                     />
                   </div>
@@ -110,7 +138,15 @@ export default function MetaPage() {
         </div>
 
         {/* Top Win Rate */}
-        <div className="card p-5">
+        <div
+          className="card p-5"
+          style={{
+            background: "linear-gradient(180deg, rgba(20,29,53,0.70) 0%, rgba(15,22,41,0.55) 100%)",
+            borderColor: "rgba(255,255,255,0.10)",
+            boxShadow: "0 18px 50px rgba(0,0,0,0.28)",
+            backdropFilter: "blur(10px)",
+          }}
+        >
           <div className="flex items-center gap-2 mb-4">
             <Swords size={14} style={{ color: "#00ff88" }} />
             <h2 className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
@@ -142,7 +178,7 @@ export default function MetaPage() {
                   </div>
                   <div
                     className="h-1 rounded-full"
-                    style={{ backgroundColor: "var(--border)" }}
+                    style={{ backgroundColor: "rgba(255,255,255,0.10)" }}
                   >
                     <div
                       className="h-1 rounded-full"
