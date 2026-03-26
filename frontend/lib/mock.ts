@@ -122,7 +122,7 @@ export function getTeamModeLabel(teamMode: number): string {
 const BASE_GAME: UserGame = {
   userNum: 4095353, nickname: "김현민", seasonId: 33,
   matchingMode: 3, matchingTeamMode: 3, accountLevel: 139,
-  serverName: "Asia", language: "Korean", versionMajor: 3, versionMinor: 0,
+  serverName: "Global", language: "Korean", versionMajor: 3, versionMinor: 0,
   // 게임별로 오버라이드되는 기본값
   gameId: 0, characterNum: 0, gameRank: 0, playerKill: 0, playerAssistant: 0,
   monsterKill: 0, playerDeaths: 0, damageToPlayer: 0, healAmount: 0,
@@ -298,5 +298,5 @@ export const MOCK_META: MetaBriefing = {
     { characterName: "재클린", characterNum: 4, winRate: 53.7 },
     { characterName: "핀", characterNum: 2, winRate: 52.4 },
   ],
-  summary: "오늘 아시아 서버는 엘레나·나쟈 중심의 교전 메타가 강세입니다. 특히 나쟈는 승률 62%로 압도적 1위를 기록 중이며, 현우의 초반 점령 후 성장 루트가 2인큐 상위권에서 유행하고 있습니다.",
+  summary: "오늘은 엘레나·나쟈 중심의 교전 메타가 강세입니다. 특히 나쟈는 승률 62%로 압도적 1위를 기록 중이며, 현우의 초반 점령 후 성장 루트가 2인큐 상위권에서 유행하고 있습니다.",
 };

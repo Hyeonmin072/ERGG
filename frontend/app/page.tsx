@@ -20,7 +20,7 @@ const FEATURES = [
   {
     icon: <BarChart2 size={22} style={{ color: "#00ff88" }} />,
     title: "실시간 메타 브리핑",
-    desc: "오늘 Asia 서버 상위권에서 급부상한 실험체·아이템 빌드를 매일 요약합니다.",
+    desc: "상위권에서 급부상한 실험체·아이템 빌드를 매일 요약합니다.",
   },
   {
     icon: <Map size={22} style={{ color: "#ffa726" }} />,
@@ -90,7 +90,7 @@ export default function HomePage() {
             textShadow: "0 1px 8px rgba(0,0,0,0.95), 0 0 20px rgba(0,0,0,0.8)",
           }}
         >
-          이터널리턴 Asia 서버 전적 분석 플랫폼
+          이터널리턴 전적 분석 플랫폼
         </p>
         <p
           className="text-sm"
@@ -218,7 +218,7 @@ export default function HomePage() {
         ))}
       </div>
 
-      {/* Asia server badge */}
+      {/* Live data badge */}
       <div
         className="mt-12 flex items-center gap-2 px-4 py-2 rounded-full text-xs relative"
         style={{
@@ -233,7 +233,7 @@ export default function HomePage() {
           className="w-2 h-2 rounded-full pulse-neon"
           style={{ backgroundColor: "var(--home-accent)" }}
         />
-        Asia 서버 전용 · 실시간 데이터
+        실시간 데이터
       </div>
     </div>
   );

@@ -1,14 +1,73 @@
 "use client";
-import { useRef, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Points, PointMaterial } from "@react-three/drei";
 import * as THREE from "three";
 
+type MouseState = { x: number; y: number };
+
+function clamp(v: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, v));
+}
+
+function lerp(a: number, b: number, t: number) {
+  return a + (b - a) * t;
+}
+
 /* ── 이십면체 메시 ────────────────────────────────────────────────────────── */
-function Icosahedron() {
+function Icosahedron({
+  mouse,
+  lastMoveAtMs,
+  isFocused,
+}: {
+  mouse: React.MutableRefObject<MouseState>;
+  lastMoveAtMs: React.MutableRefObject<number>;
+  isFocused: React.MutableRefObject<boolean>;
+}) {
   const meshRef   = useRef<THREE.Mesh>(null);
   const edgesRef  = useRef<THREE.LineSegments>(null);
   const glowRef   = useRef<THREE.Mesh>(null);
+  const hazeRef   = useRef<THREE.Mesh>(null);
+
+  const lookRef = useRef<MouseState>({ x: 0, y: 0 });
+
+  const rimMaterial = useMemo(() => {
+    return new THREE.ShaderMaterial({
+      uniforms: {
+        uColor: { value: new THREE.Color("#ffffff") },
+        uIntensity: { value: 0.55 },
+        uPower: { value: 2.2 },
+      },
+      vertexShader: `
+        varying vec3 vNormal;
+        varying vec3 vViewDir;
+        void main() {
+          vec4 worldPos = modelMatrix * vec4(position, 1.0);
+          vNormal = normalize(normalMatrix * normal);
+          vViewDir = normalize(cameraPosition - worldPos.xyz);
+          gl_Position = projectionMatrix * viewMatrix * worldPos;
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 uColor;
+        uniform float uIntensity;
+        uniform float uPower;
+        varying vec3 vNormal;
+        varying vec3 vViewDir;
+        void main() {
+          float ndv = clamp(dot(normalize(vNormal), normalize(vViewDir)), 0.0, 1.0);
+          float fresnel = pow(1.0 - ndv, uPower);
+          float a = fresnel * uIntensity;
+          gl_FragColor = vec4(uColor, a);
+        }
+      `,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+  }, []);
+
+  const hazeGeo = useMemo(() => new THREE.SphereGeometry(0.86, 32, 32), []);
 
   // 20개 면 각각의 페이드 위상
   const FACE_COUNT = 20;
@@ -31,18 +90,37 @@ function Icosahedron() {
   useFrame(({ clock }) => {
     const t = clock.getElapsedTime();
 
-    // 회전
+    // 마우스 기반 시점 변화 (부드럽게 보간)
+    const idleMs = performance.now() - lastMoveAtMs.current;
+    const shouldFreeze = idleMs >= 3000 || !isFocused.current;
+
+    // 마우스가 멈추거나 포커스 밖이면 "원위치 복귀" 대신
+    // 현재 기울기를 유지한 채 계속 회전하도록 타겟을 고정
+    const targetX = shouldFreeze ? lookRef.current.x : clamp(mouse.current.x, -1, 1);
+    const targetY = shouldFreeze ? lookRef.current.y : clamp(mouse.current.y, -1, 1);
+
+    lookRef.current.x = lerp(lookRef.current.x, targetX, 0.11);
+    lookRef.current.y = lerp(lookRef.current.y, targetY, 0.11);
+
+    const parallaxX = -lookRef.current.y * 0.32; // 위/아래 → x축 기울기
+    const parallaxY =  lookRef.current.x * 0.36; // 좌/우 → y축 기울기
+
+    // 회전: 기존 일정 속도로 복귀 (네온판 효과는 유지)
     if (meshRef.current) {
-      meshRef.current.rotation.y = t * 0.12;
-      meshRef.current.rotation.x = 0.30 + Math.sin(t * 0.05) * 0.12;
+      meshRef.current.rotation.y = t * 0.12 + parallaxY;
+      meshRef.current.rotation.x = 0.30 + Math.sin(t * 0.05) * 0.12 + parallaxX;
     }
     if (edgesRef.current) {
-      edgesRef.current.rotation.y = t * 0.12;
-      edgesRef.current.rotation.x = 0.30 + Math.sin(t * 0.05) * 0.12;
+      edgesRef.current.rotation.y = t * 0.12 + parallaxY;
+      edgesRef.current.rotation.x = 0.30 + Math.sin(t * 0.05) * 0.12 + parallaxX;
     }
     if (glowRef.current) {
-      glowRef.current.rotation.y = t * 0.12;
-      glowRef.current.rotation.x = 0.30 + Math.sin(t * 0.05) * 0.12;
+      glowRef.current.rotation.y = t * 0.12 + parallaxY;
+      glowRef.current.rotation.x = 0.30 + Math.sin(t * 0.05) * 0.12 + parallaxX;
+    }
+    if (hazeRef.current) {
+      hazeRef.current.rotation.y = t * 0.12 + parallaxY * 0.7;
+      hazeRef.current.rotation.x = 0.30 + Math.sin(t * 0.05) * 0.12 + parallaxX * 0.7;
     }
 
     // 면별 페이드 — vertex color alpha로 처리
@@ -85,6 +163,18 @@ function Icosahedron() {
 
   return (
     <group>
+      {/* 내부 헤이즈: 중앙 광점 대신 아주 약한 안개 */}
+      <mesh ref={hazeRef} geometry={hazeGeo}>
+        <meshBasicMaterial
+          color="#ffffff"
+          transparent
+          opacity={0.035}
+          blending={THREE.AdditiveBlending}
+          side={THREE.BackSide}
+          depthWrite={false}
+        />
+      </mesh>
+
       {/* 면 (반투명 흰색, 앞면만, 페이드인아웃) */}
       <mesh ref={meshRef} geometry={geo}>
         <meshStandardMaterial
@@ -107,16 +197,8 @@ function Icosahedron() {
         />
       </lineSegments>
 
-      {/* 네온 글로우 엣지 (살짝 큰 크기) */}
-      <mesh ref={glowRef} geometry={geo} scale={1.003}>
-        <meshBasicMaterial
-          color="#ffffff"
-          transparent
-          opacity={0.0}
-          wireframe
-          depthWrite={false}
-        />
-      </mesh>
+      {/* 프레넬 림 라이트: 외곽 하이라이트 강화 */}
+      <mesh ref={glowRef} geometry={geo} scale={1.02} material={rimMaterial} />
     </group>
   );
 }
@@ -169,13 +251,16 @@ function FadingFaces() {
   useFrame(({ clock }) => {
     const t = clock.getElapsedTime();
     if (groupRef.current) {
-      groupRef.current.rotation.y = t * 0.12;
-      groupRef.current.rotation.x = 0.30 + Math.sin(t * 0.05) * 0.12;
+      groupRef.current.rotation.y = t * 0.07 + Math.sin(t * 0.11) * 0.02;
+      groupRef.current.rotation.x = 0.30 + Math.sin(t * 0.04) * 0.10;
+      groupRef.current.rotation.z = Math.sin(t * 0.06) * 0.03;
     }
     faceMeshes.forEach(({ phase }, fi) => {
       const sinV = Math.sin(t * phase.speed + phase.offset);
       const fade = sinV * sinV;
-      materialsRef.current[fi].opacity = fade * 0.18;
+      // 여러 주기로 숨 쉬듯 움직이게 (강도는 낮게 유지)
+      const breath = 0.65 + Math.sin(t * 0.22 + phase.offset) * 0.35;
+      materialsRef.current[fi].opacity = fade * 0.07 * breath;
     });
   });
 
@@ -219,8 +304,15 @@ function OrbitParticles() {
 
   useFrame(({ clock }) => {
     const t = clock.getElapsedTime();
-    if (innerRef.current) innerRef.current.rotation.z =  t * 0.22;
-    if (outerRef.current) outerRef.current.rotation.z = -t * 0.14;
+    // 서로 다른 축/속도로 공전 + 저주파 변조
+    if (innerRef.current) {
+      innerRef.current.rotation.z =  t * 0.18 + Math.sin(t * 0.30) * 0.08;
+      innerRef.current.rotation.x =  Math.sin(t * 0.17) * 0.12;
+    }
+    if (outerRef.current) {
+      outerRef.current.rotation.z = -t * 0.11 + Math.sin(t * 0.23 + 1.4) * 0.10;
+      outerRef.current.rotation.y =  Math.sin(t * 0.13 + 0.6) * 0.10;
+    }
   });
 
   return (
@@ -303,7 +395,10 @@ function FloatParticles() {
       pos.setY(i, baseY[i] + Math.sin(t * ph.floatSpeed + ph.floatOff) * ph.floatAmp);
     }
     pos.needsUpdate = true;
-    ref.current.rotation.y = t * 0.03;
+    // 다축으로 천천히 드리프트
+    ref.current.rotation.y = t * 0.022 + Math.sin(t * 0.07) * 0.05;
+    ref.current.rotation.x = Math.sin(t * 0.05 + 0.6) * 0.06;
+    ref.current.rotation.z = Math.sin(t * 0.06 + 1.1) * 0.05;
   });
 
   return (
@@ -391,8 +486,14 @@ function Rings() {
 
   useFrame(({ clock }) => {
     const t = clock.getElapsedTime();
-    if (ring1Ref.current) ring1Ref.current.rotation.z =  t * 0.12;
-    if (ring2Ref.current) ring2Ref.current.rotation.z = -t * 0.08;
+    if (ring1Ref.current) {
+      ring1Ref.current.rotation.z =  t * 0.09 + Math.sin(t * 0.18) * 0.05;
+      ring1Ref.current.rotation.x =  Math.sin(t * 0.09) * 0.08;
+    }
+    if (ring2Ref.current) {
+      ring2Ref.current.rotation.z = -t * 0.06 + Math.sin(t * 0.16 + 2.0) * 0.06;
+      ring2Ref.current.rotation.y =  Math.sin(t * 0.08 + 0.4) * 0.08;
+    }
   });
 
   return (
@@ -406,24 +507,6 @@ function Rings() {
         <meshBasicMaterial color="#7c3aed" transparent opacity={0.10} side={THREE.DoubleSide} depthWrite={false} />
       </mesh>
     </>
-  );
-}
-
-/* ── 중심 광점 ────────────────────────────────────────────────────────────── */
-function CenterGlow() {
-  const ref = useRef<THREE.Mesh>(null);
-  useFrame(({ clock }) => {
-    const t = clock.getElapsedTime();
-    if (ref.current) {
-      const s = 0.85 + Math.sin(t * 1.8) * 0.15;
-      ref.current.scale.setScalar(s);
-    }
-  });
-  return (
-    <mesh ref={ref}>
-      <sphereGeometry args={[0.06, 16, 16]} />
-      <meshBasicMaterial color="#ffffff" transparent opacity={0.65} depthWrite={false} />
-    </mesh>
   );
 }
 
@@ -443,18 +526,68 @@ function Lights() {
 interface Props { size?: number }
 
 export default function HeroGeometry({ size = 520 }: Props) {
+  const mouse = useRef<MouseState>({ x: 0, y: 0 });
+  const lastMoveAtMs = useRef<number>(performance.now());
+  const isFocused = useRef<boolean>(true);
+
+  useEffect(() => {
+    const updateFromEvent = (e: MouseEvent) => {
+      const w = window.innerWidth || 1;
+      const h = window.innerHeight || 1;
+      const nx = (e.clientX / w) * 2 - 1;
+      const ny = (e.clientY / h) * 2 - 1;
+      mouse.current.x = nx;
+      mouse.current.y = ny;
+      lastMoveAtMs.current = performance.now();
+      isFocused.current = true;
+    };
+
+    const handleBlur = () => {
+      isFocused.current = false;
+    };
+    const handleFocus = () => {
+      isFocused.current = true;
+      lastMoveAtMs.current = performance.now();
+    };
+    const handleVisibility = () => {
+      isFocused.current = document.visibilityState === "visible";
+      lastMoveAtMs.current = performance.now();
+    };
+    const handleDocLeave = () => {
+      isFocused.current = false;
+      lastMoveAtMs.current = performance.now();
+    };
+
+    window.addEventListener("mousemove", updateFromEvent, { passive: true });
+    window.addEventListener("blur", handleBlur);
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibility);
+    document.addEventListener("mouseleave", handleDocLeave);
+
+    return () => {
+      window.removeEventListener("mousemove", updateFromEvent);
+      window.removeEventListener("blur", handleBlur);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      document.removeEventListener("mouseleave", handleDocLeave);
+    };
+  }, []);
+
   return (
-    <div style={{ width: size, height: size, pointerEvents: "none" }}>
+    <div
+      style={{ width: size, height: size, pointerEvents: "none" }}
+    >
       <Canvas
         camera={{ position: [0, 0, 3.8], fov: 45 }}
         gl={{ antialias: true, alpha: true }}
-        style={{ background: "transparent" }}
+        style={{ background: "transparent", pointerEvents: "none" }}
       >
         <Lights />
         <FadingFaces />
-        <Icosahedron />
+        <Rings />
+        <OrbitParticles />
+        <Icosahedron mouse={mouse} lastMoveAtMs={lastMoveAtMs} isFocused={isFocused} />
         <FloatParticles />
-        <CenterGlow />
       </Canvas>
     </div>
   );

@@ -38,7 +38,7 @@ export default function MetaPage() {
             실시간 메타 브리핑
           </h1>
           <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
-            Asia 서버 상위권 트렌드 요약
+            상위권 트렌드 요약
           </p>
         </div>
         <div
