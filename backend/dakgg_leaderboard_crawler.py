@@ -26,6 +26,8 @@ TEAM_MODE = "SQUAD"
 SEASON_CODE = "SEASON_19"
 SERVER_NAME = "seoul"
 TARGET_COUNT = 1000
+MAX_PAGES = 60
+MAX_CONSECUTIVE_EMPTY_ADDS = 6
 OUT_CSV = Path(__file__).resolve().parent / "dakgg_asia_season10_top1000.csv"
 
 logging.basicConfig(
@@ -60,29 +62,56 @@ def _row_candidates(page: Page) -> Locator:
 
 def _extract_rows(page: Page) -> list[LeaderboardRow]:
     rows: list[LeaderboardRow] = []
-    candidates = _row_candidates(page)
-    count = candidates.count()
+    table_rows = page.locator("table tbody tr")
+    if table_rows.count() > 0:
+        for i in range(table_rows.count()):
+            row = table_rows.nth(i)
+            tds = row.locator("td")
+            if tds.count() < 2:
+                continue
 
-    for i in range(count):
+            rank_txt = tds.nth(0).inner_text().strip()
+            nick_txt = tds.nth(1).inner_text().strip()
+            rank = _parse_rank(rank_txt)
+            if rank is None or not nick_txt:
+                continue
+            rows.append(LeaderboardRow(rank=rank, nickname=nick_txt))
+        return rows
+
+    # fallback: div row 구조
+    candidates = _row_candidates(page)
+    for i in range(candidates.count()):
         row = candidates.nth(i)
         txt = row.inner_text().strip()
         if not txt:
             continue
-
         lines = [ln.strip() for ln in txt.splitlines() if ln.strip()]
-        if not lines:
+        if len(lines) < 2:
             continue
-
         rank = _parse_rank(lines[0])
-        nickname = lines[1] if len(lines) > 1 else ""
-        if not nickname:
+        nickname = lines[1]
+        if rank is None or not nickname:
             continue
-        if rank is None:
-            continue
-
         rows.append(LeaderboardRow(rank=rank, nickname=nickname))
 
     return rows
+
+
+def _wait_rows_ready(page: Page, timeout_ms: int = 15000) -> None:
+    """
+    networkidle 대신 실제 랭킹 행 렌더를 대기한다.
+    닥지지 페이지는 백그라운드 요청이 이어져 networkidle 타임아웃이 자주 발생함.
+    """
+    table_rows = page.locator("table tbody tr")
+    div_rows = page.locator("[class*='leaderboard'] [class*='row']")
+
+    start = time.time()
+    while (time.time() - start) * 1000 < timeout_ms:
+        if table_rows.count() > 0 or div_rows.count() > 0:
+            return
+        page.wait_for_timeout(200)
+
+    raise TimeoutError(f"rows not ready within {timeout_ms}ms")
 
 
 def _build_page_url(page_no: int) -> str:
@@ -95,9 +124,10 @@ def _build_page_url(page_no: int) -> str:
 
 
 def crawl() -> list[LeaderboardRow]:
-    seen: set[int] = set()
+    seen_nicknames: set[str] = set()
     result: list[LeaderboardRow] = []
     page_no = 1
+    empty_add_streak = 0
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
@@ -105,14 +135,16 @@ def crawl() -> list[LeaderboardRow]:
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
         )
 
-        while len(result) < TARGET_COUNT:
+        while len(result) < TARGET_COUNT and page_no <= MAX_PAGES:
             page_url = _build_page_url(page_no)
             logger.info("navigate page=%s url=%s", page_no, page_url)
-            page.goto(page_url, wait_until="networkidle", timeout=60000)
+            # NOTE: networkidle은 해당 사이트에서 안정적이지 않아 사용하지 않음
+            page.goto(page_url, wait_until="domcontentloaded", timeout=60000)
             try:
-                page.wait_for_timeout(300)
+                _wait_rows_ready(page, timeout_ms=20000)
                 rows = _extract_rows(page)
             except TimeoutError:
+                logger.warning("rows wait timeout on page=%s", page_no)
                 rows = []
 
             if not rows:
@@ -121,15 +153,17 @@ def crawl() -> list[LeaderboardRow]:
 
             added = 0
             for row in rows:
-                if row.rank in seen:
+                key = row.nickname.strip()
+                if not key or key in seen_nicknames:
                     continue
-                seen.add(row.rank)
+                seen_nicknames.add(key)
                 result.append(row)
                 added += 1
 
             result.sort(key=lambda r: r.rank)
             result = [r for r in result if 1 <= r.rank <= TARGET_COUNT][:TARGET_COUNT]
-            seen = {r.rank for r in result}
+            seen_nicknames = {r.nickname.strip() for r in result if r.nickname.strip()}
+            save_csv(result, OUT_CSV)
 
             logger.info(
                 "page=%s extracted=%s added=%s collected=%s",
@@ -142,12 +176,25 @@ def crawl() -> list[LeaderboardRow]:
                 logger.info("target reached: %s", TARGET_COUNT)
                 break
 
-            # URL 기반 페이지네이션: 새 페이지에서 추가 수집이 전혀 없으면 종료
+            # 일부 페이지에서 파싱 실패/중복만 나오는 경우가 있어 즉시 종료하지 않는다.
             if added == 0:
-                logger.info("no new rank on page=%s, stop", page_no)
-                break
+                empty_add_streak += 1
+                logger.warning(
+                    "no new rank on page=%s (streak=%s/%s)",
+                    page_no,
+                    empty_add_streak,
+                    MAX_CONSECUTIVE_EMPTY_ADDS,
+                )
+                if empty_add_streak >= MAX_CONSECUTIVE_EMPTY_ADDS:
+                    logger.info("too many consecutive empty pages, stop")
+                    break
+            else:
+                empty_add_streak = 0
             page_no += 1
             time.sleep(0.15)
+
+        if page_no > MAX_PAGES:
+            logger.info("reached max pages=%s, stop", MAX_PAGES)
 
         browser.close()
 
