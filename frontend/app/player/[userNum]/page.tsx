@@ -218,7 +218,7 @@ export default function PlayerPage() {
             </div>
           </div>
 
-          {/* 갱신 + AI 코치 */}
+          {/* 갱신 + 패배 분석 */}
           <div className="flex flex-col items-end gap-2 shrink-0">
             <button
               onClick={handleRefresh}
@@ -235,16 +235,16 @@ export default function PlayerPage() {
               {refreshing ? "갱신 중..." : "갱신"}
             </button>
             <Link
-              href={`/ai/coach?userNum=${player.userNum}`}
+              href={`/ai/defeat?userNum=${player.userNum}`}
               className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-bold transition-all"
               style={{
-                background: "linear-gradient(135deg, rgba(124,58,237,0.95), rgba(255,255,255,0.78))",
+                background: "linear-gradient(135deg, rgba(248,113,113,0.35), rgba(255,255,255,0.78))",
                 color: "rgba(10,14,26,0.95)",
                 border: "1px solid rgba(255,255,255,0.18)",
                 boxShadow: "0 18px 55px rgba(0,0,0,0.34)",
               }}
             >
-              나쟈의 독설 받기
+              AI 패배 원인 분석
               <ChevronRight size={11} />
             </Link>
           </div>

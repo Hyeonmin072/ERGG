@@ -111,10 +111,10 @@ export function getMatchingModeLabel(mode: number): string {
   return mode === 3 ? "랭크" : "일반";
 }
 
-/** 팀 모드 라벨 */
+/** 팀 모드 라벨 (ER: 솔로·스쿼드(3인) 중심) */
 export function getTeamModeLabel(teamMode: number): string {
-  const map: Record<number, string> = { 1: "솔로", 2: "듀오", 3: "스쿼드" };
-  return map[teamMode] ?? `${teamMode}인큐`;
+  const map: Record<number, string> = { 1: "솔로", 3: "스쿼드" };
+  return map[teamMode] ?? `팀 모드 ${teamMode}`;
 }
 
 // ── 목 데이터 ─────────────────────────────────────────────────

@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Search, Zap, BarChart2, Map } from "lucide-react";
+import { Search, Target, LineChart, UsersRound, PieChart } from "lucide-react";
 
 export default function Navbar() {
   const router = useRouter();
@@ -57,39 +57,50 @@ export default function Navbar() {
         </form>
 
         {/* Nav links */}
-        <div className="flex items-center gap-1 ml-auto">
+        <div className="flex items-center gap-0.5 sm:gap-1 ml-auto flex-wrap justify-end">
           <Link
-            href="/ai/coach"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+            href="/ai/defeat"
+            className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-white/5"
             style={{
               color: "var(--text-secondary)",
               border: "1px solid transparent",
             }}
           >
-            <Zap size={13} />
-            <span className="hidden sm:inline">AI 코치</span>
+            <Target size={13} style={{ color: "#f87171" }} />
+            <span className="hidden sm:inline">패배 분석</span>
           </Link>
           <Link
-            href="/ai/meta"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+            href="/ai/personal"
+            className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-white/5"
             style={{
               color: "var(--text-secondary)",
               border: "1px solid transparent",
             }}
           >
-            <BarChart2 size={13} />
-            <span className="hidden sm:inline">메타</span>
+            <LineChart size={13} style={{ color: "#60a5fa" }} />
+            <span className="hidden sm:inline">개인 지표</span>
           </Link>
           <Link
-            href="/ai/route"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+            href="/ai/combo"
+            className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-white/5"
             style={{
               color: "var(--text-secondary)",
               border: "1px solid transparent",
             }}
           >
-            <Map size={13} />
-            <span className="hidden sm:inline">루트</span>
+            <UsersRound size={13} style={{ color: "#a78bfa" }} />
+            <span className="hidden sm:inline">조합 예측</span>
+          </Link>
+          <Link
+            href="/stats"
+            className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-white/5"
+            style={{
+              color: "var(--text-secondary)",
+              border: "1px solid transparent",
+            }}
+          >
+            <PieChart size={13} style={{ color: "#34d399" }} />
+            <span className="hidden sm:inline">통계</span>
           </Link>
         </div>
       </div>

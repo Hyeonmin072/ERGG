@@ -11,7 +11,7 @@ class Game(Base):
     game_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     season_id: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     matching_mode: Mapped[int] = mapped_column(SmallInteger, nullable=False)        # 2=일반, 3=랭크
-    matching_team_mode: Mapped[int] = mapped_column(SmallInteger, nullable=False)   # 1=솔로, 2=듀오, 3=스쿼드
+    matching_team_mode: Mapped[int] = mapped_column(SmallInteger, nullable=False)   # 1=솔로, 3=스쿼드
     server_name: Mapped[str] = mapped_column(String(20), default="Asia")
     version_major: Mapped[int] = mapped_column(SmallInteger, default=0)
     version_minor: Mapped[int] = mapped_column(SmallInteger, default=0)

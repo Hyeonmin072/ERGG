@@ -31,7 +31,7 @@ export interface UserGame {
   gameId: number;
   seasonId: number;
   matchingMode: number;       // 2=일반, 3=랭크
-  matchingTeamMode: number;   // 1=솔로, 2=듀오, 3=스쿼드
+  matchingTeamMode: number;   // 1=솔로, 3=스쿼드 (ER 본가 기준)
   accountLevel: number;
   serverName: string;
   language: string;
