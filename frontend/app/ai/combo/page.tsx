@@ -34,7 +34,7 @@ const gridBg = {
   backgroundSize: "28px 28px",
 };
 
-function ComboCharacterThumb({ name, size = 40 }: { name: string; size?: number }) {
+function ComboCharacterThumb({ name, size = 38 }: { name: string; size?: number }) {
   const src = getCharacterDefaultMiniSrc(name);
   if (!src) {
     return (
@@ -208,7 +208,7 @@ export default function ComboWinratePage() {
         <div className="flex-1 min-h-0 grid grid-cols-1 xl:grid-cols-12 gap-5 lg:gap-6 min-h-0 items-stretch">
           {/* 01 실험체 — 모바일은 이 블록 높이 캡 + 내부만 스크롤, xl은 열 높이에 맞춤 */}
           <section
-            className="xl:col-span-7 flex flex-col min-h-0 max-h-[min(46vh,520px)] xl:max-h-none xl:h-full rounded-2xl overflow-hidden"
+            className="xl:col-span-7 flex flex-col min-h-0 max-h-[min(40vh,460px)] xl:max-h-none xl:h-full rounded-2xl overflow-hidden"
             style={{
               background: "linear-gradient(160deg, rgba(12,32,38,0.88) 0%, rgba(6,18,24,0.95) 100%)",
               border: `1px solid ${panelBorderStrong}`,
@@ -227,14 +227,11 @@ export default function ComboWinratePage() {
                 <h2 className="text-base sm:text-lg font-bold" style={{ color: "var(--text-primary)" }}>
                   실험체 라이브러리
                 </h2>
-                <p className="text-[11px] mt-0.5" style={{ color: "var(--text-secondary)" }}>
-                  이 영역만 스크롤됩니다
-                </p>
               </div>
             </div>
-            <div className="shrink-0 p-4 sm:px-5 pt-3 pb-3 border-b" style={{ borderColor: panelBorder }}>
+            <div className="shrink-0 p-3 sm:px-4 pt-2.5 pb-2.5 border-b" style={{ borderColor: panelBorder }}>
               <div
-                className="flex items-center gap-3 rounded-xl px-4 py-3 transition-[box-shadow] duration-300 focus-within:shadow-[0_0_0_1px_rgba(45,212,191,0.35)]"
+                className="flex items-center gap-3 rounded-xl px-3.5 py-2.5 transition-[box-shadow] duration-300 focus-within:shadow-[0_0_0_1px_rgba(45,212,191,0.35)]"
                 style={{
                   background: "rgba(0,0,0,0.28)",
                   border: `1px solid ${panelBorder}`,
@@ -252,10 +249,10 @@ export default function ComboWinratePage() {
               </div>
             </div>
             <div
-              className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 sm:p-5 pt-3"
+              className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-3 sm:p-4 pt-2.5"
               style={{ scrollbarGutter: "stable" }}
             >
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 pb-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1 pb-2">
                 {filtered.length === 0 ? (
                   <p
                     className="col-span-full py-20 text-center text-xs font-mono combo-animate-fade-up"
@@ -271,7 +268,7 @@ export default function ComboWinratePage() {
                         key={name}
                         type="button"
                         onClick={() => toggleCharacter(name)}
-                        className={`group rounded-xl p-3 flex flex-col items-center gap-2.5 text-left duration-200 ${
+                        className={`group w-full max-w-[104px] mx-auto rounded-xl p-1.5 flex flex-col items-center gap-1 text-left duration-200 ${
                           active ? "combo-animate-pick" : ""
                         } hover:scale-[1.02] active:scale-[0.98]`}
                         style={{
@@ -280,7 +277,7 @@ export default function ComboWinratePage() {
                           boxShadow: active ? "0 0 20px rgba(45,212,191,0.12)" : "none",
                         }}
                       >
-                        <ComboCharacterThumb name={name} size={48} />
+                        <ComboCharacterThumb name={name} size={46} />
                         <span
                           className="text-[12px] sm:text-[13px] font-semibold leading-snug text-center w-full line-clamp-2"
                           style={{ color: "var(--text-primary)" }}
@@ -358,7 +355,7 @@ export default function ComboWinratePage() {
                       </span>
                       {slots[i] ? (
                         <>
-                          <ComboCharacterThumb name={slots[i]!} size={52} />
+                          <ComboCharacterThumb name={slots[i]!} size={44} />
                           <div className="flex-1 min-w-0">
                             <p
                               className="text-base sm:text-lg font-bold truncate"
