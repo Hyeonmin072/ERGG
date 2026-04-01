@@ -544,3 +544,40 @@
       "isLeavingBeforeCreditRevivalTerminate": false,
       "mlbot": false
     },
+
+============================================================
+json data.txt 필드 번역 (최신 매치 데이터 기준)
+============================================================
+
+[식별/매치 메타]
+nickname: 닉네임
+gameId: 게임 ID (매치 고유키)
+seasonId: 시즌 ID
+matchingMode: 매칭 모드 (2=일반, 3=랭크)
+matchingTeamMode: 팀 모드 (1=솔로, 2=듀오, 3=스쿼드)
+serverName: 서버명
+startDtm: 게임 시작 시각
+duration: 게임 전체 지속 시간(초)
+matchSize: 매치 인원 수
+versionMajor/versionMinor: 게임 버전
+
+[캐릭터/장비]
+characterNum: 캐릭터 번호
+skinCode: 스킨 코드
+characterLevel: 캐릭터 레벨
+bestWeapon/bestWeaponLevel: 최고 숙련 무기/레벨
+masteryLevel: 무기군별 숙련도(JSON)
+equipment: 슬롯별 장비 코드(JSON)
+equipmentGrade: 슬롯별 장비 등급(JSON)
+skillLevelInfo: 스킬별 레벨(JSON)
+skillOrderInfo: 스킬 습득 순서(JSON)
+traitFirstCore/traitFirstSub/traitSecondSub: 특성 코어/서브 특성
+tacticalSkillGroup/tacticalSkillLevel: 전술 스킬 그룹/레벨
+
+[결과/전투 핵심]
+gameRank: 최종 순위
+victory: 승리 여부(1/0)
+playerKill/playerAssistant/playerDeaths: 킬/어시/데스
+teamKill: 팀 총 킬
+monsterKill: 몬스터 킬
+teamElimination/teamDown: 팀 처치/다운 관련 지표
