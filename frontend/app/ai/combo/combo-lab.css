@@ -1,0 +1,110 @@
+/* 조합 분석 — 연구실 UI 전용 */
+
+@keyframes combo-scan-drift {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(8px);
+  }
+}
+
+@keyframes combo-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes combo-slot-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  70% {
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes combo-pick-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(45, 212, 191, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(45, 212, 191, 0);
+  }
+}
+
+@keyframes combo-hud-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.combo-lab-root {
+  --lab-cyan: #2dd4bf;
+  --lab-cyan-dim: rgba(45, 212, 191, 0.35);
+  --lab-glass: rgba(6, 22, 28, 0.65);
+}
+
+.combo-lab-scanlines {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0.22;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(45, 212, 191, 0.045) 3px,
+    rgba(45, 212, 191, 0.045) 6px
+  );
+  animation: combo-scan-drift 6s linear infinite;
+}
+
+.combo-lab-vignette {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: radial-gradient(
+    ellipse 75% 65% at 50% 45%,
+    transparent 0%,
+    rgba(4, 12, 18, 0.55) 100%
+  );
+}
+
+.combo-animate-fade-up {
+  animation: combo-fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.combo-animate-slot-in {
+  animation: combo-slot-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.combo-animate-pick {
+  animation: combo-pick-pulse 0.65s ease-out 1;
+}
+
+.combo-status-led {
+  animation: combo-hud-blink 2.2s ease-in-out infinite;
+}
+
+.combo-countup-wrap .combo-countup-num {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+}
