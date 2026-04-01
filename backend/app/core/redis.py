@@ -1,9 +1,9 @@
 import json
-from typing import Any
+from typing import Any, Optional
 import redis.asyncio as aioredis
 from .config import settings
 
-_redis: aioredis.Redis | None = None
+_redis: Optional[aioredis.Redis] = None
 
 
 async def get_redis() -> aioredis.Redis:
@@ -13,7 +13,7 @@ async def get_redis() -> aioredis.Redis:
     return _redis
 
 
-async def cache_get(key: str) -> Any | None:
+async def cache_get(key: str) -> Optional[Any]:
     r = await get_redis()
     value = await r.get(key)
     if value:

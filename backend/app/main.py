@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .core.config import settings
-from .routers import players, octagon, ai_lab
+from .routers import players, octagon, ai_lab, stats
 
 app = FastAPI(
     title="ER.GG API",
@@ -24,6 +24,7 @@ app.add_middleware(
 app.include_router(players.router, prefix="/api/v1/players", tags=["players"])
 app.include_router(octagon.router, prefix="/api/v1/octagon", tags=["octagon"])
 app.include_router(ai_lab.router, prefix="/api/v1/ai", tags=["ai"])
+app.include_router(stats.router, prefix="/api/v1/stats", tags=["stats"])
 
 
 @app.get("/health")

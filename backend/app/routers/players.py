@@ -1,6 +1,13 @@
+from __future__ import annotations
+
+from typing import Optional
 from fastapi import APIRouter, HTTPException
 from ..clients.er_api_client import get_er_client
 from ..core.redis import cache_get, cache_set, cache_delete_pattern
+from ..services.supabase_sync_service import (
+    sync_user_games_to_supabase,
+    sync_user_games_by_user_id_to_supabase,
+)
 
 router = APIRouter()
 
@@ -55,7 +62,7 @@ async def get_player(user_num: int, season_id: int = 33, mode: int = 3):
 
 
 @router.get("/{user_num}/games")
-async def get_player_games(user_num: int, page: int = 0, cursor: str | None = None):
+async def get_player_games(user_num: int, page: int = 0, cursor: Optional[str] = None):
     """플레이어 최근 게임 목록."""
     cache_key = f"player:games:{user_num}:{page}"
     cached = await cache_get(cache_key)
@@ -85,3 +92,24 @@ async def refresh_player(user_num: int):
     await cache_delete_pattern(f"player:*:{user_num}*")
     await cache_delete_pattern(f"octagon:{user_num}*")
     return {"message": "캐시가 초기화되었습니다. 다음 조회 시 최신 데이터가 반영됩니다."}
+
+
+@router.post("/{user_num}/sync-supabase")
+async def sync_player_games_to_supabase(user_num: int, limit: int = 20):
+    """userNum 기준 최근 게임을 Supabase에 업서트."""
+    try:
+        return await sync_user_games_to_supabase(user_num=user_num, limit=limit)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Supabase 동기화 실패: {e}")
+
+
+@router.post("/sync-supabase/by-user-id")
+async def sync_player_games_by_user_id(user_id: str, limit: int = 20):
+    """
+    userId 기준 동기화.
+    내부적으로 userId -> userNum 변환 후 최근 게임을 Supabase에 업서트.
+    """
+    try:
+        return await sync_user_games_by_user_id_to_supabase(user_id=user_id, limit=limit)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"userId 동기화 실패: {e}")

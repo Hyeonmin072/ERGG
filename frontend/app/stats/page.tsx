@@ -3,21 +3,21 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   PieChart,
   ArrowLeft,
   Search,
   Database,
-  Swords,
   Info,
 } from "lucide-react";
 import { getCharacterDefaultMiniSrc } from "@/lib/characterDefaultMini";
-import { IN1000_META, WEAPON_IN1000_MOCK_ROWS } from "@/lib/statsIn1000Mock";
+import { getCharacterStats } from "@/lib/api";
+import type { CharacterStatsRow } from "@/lib/types";
 
-const accent = "#34d399";
-const border = "rgba(52,211,153,0.14)";
-const borderHi = "rgba(52,211,153,0.28)";
+const accent = "#93c5fd";
+const border = "rgba(148,163,184,0.24)";
+const borderHi = "rgba(148,163,184,0.38)";
 
 function StatThumb({ nameKo }: { nameKo: string }) {
   const src = getCharacterDefaultMiniSrc(nameKo);
@@ -60,27 +60,56 @@ function NumCell({ children, mono }: { children: ReactNode; mono?: boolean }) {
   );
 }
 
+function tierBadgeStyle(grade: string): { color: string; bg: string; border: string } {
+  if (grade === "S+") return { color: "#fde68a", bg: "rgba(245, 158, 11, 0.18)", border: "rgba(245, 158, 11, 0.45)" };
+  if (grade === "S") return { color: "#fcd34d", bg: "rgba(234, 179, 8, 0.18)", border: "rgba(234, 179, 8, 0.42)" };
+  if (grade === "A") return { color: "#93c5fd", bg: "rgba(59, 130, 246, 0.16)", border: "rgba(59, 130, 246, 0.38)" };
+  if (grade === "B") return { color: "#86efac", bg: "rgba(34, 197, 94, 0.16)", border: "rgba(34, 197, 94, 0.34)" };
+  if (grade === "C") return { color: "#cbd5e1", bg: "rgba(148, 163, 184, 0.16)", border: "rgba(148, 163, 184, 0.34)" };
+  return { color: "#fca5a5", bg: "rgba(239, 68, 68, 0.16)", border: "rgba(239, 68, 68, 0.34)" };
+}
+
 export default function StatsPage() {
   const [charQ, setCharQ] = useState("");
-  const [weaponQ, setWeaponQ] = useState("");
+  const [rows, setRows] = useState<CharacterStatsRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await getCharacterStats(10, 200);
+        if (!mounted) return;
+        setRows(data.items ?? []);
+      } catch (e) {
+        if (!mounted) return;
+        const msg = e instanceof Error ? e.message : "통계 로드에 실패했습니다.";
+        setError(msg);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const filtered = useMemo(() => {
     const c = charQ.trim();
-    const w = weaponQ.trim();
-    return WEAPON_IN1000_MOCK_ROWS.filter((row) => {
-      if (c && !row.characterKo.includes(c)) return false;
-      if (w && !row.weaponName.includes(w)) return false;
+    return rows.filter((row) => {
+      const name = row.character_name ?? "";
+      if (c && !name.includes(c) && !String(row.character_num).includes(c)) return false;
       return true;
     });
-  }, [charQ, weaponQ]);
+  }, [charQ, rows]);
 
   const totals = useMemo(() => {
     const g = filtered.reduce((s, r) => s + r.games, 0);
-    const wr =
-      g > 0
-        ? (filtered.reduce((s, r) => s + (r.winRate / 100) * r.games, 0) / g) * 100
-        : 0;
-    return { games: g, blendedWin: g > 0 ? Math.round(wr * 10) / 10 : 0 };
+    const wr = g > 0 ? filtered.reduce((s, r) => s + (r.win_rate_pct / 100) * r.games, 0) / g : 0;
+    return { games: g, blendedWin: g > 0 ? Math.round(wr * 1000) / 10 : 0 };
   }, [filtered]);
 
   return (
@@ -122,17 +151,17 @@ export default function StatsPage() {
                     border: `1px solid ${border}`,
                   }}
                 >
-                  {IN1000_META.label}
+                  LIVE
                 </span>
                 <span className="text-[10px] font-mono" style={{ color: "var(--text-secondary)" }}>
-                  {IN1000_META.seasonLabel}
+                  Supabase aggregate
                 </span>
               </div>
               <h1 className="text-3xl sm:text-4xl font-black tracking-tight" style={{ color: "var(--text-primary)" }}>
-                실험체 · 무기 평균 통계
+                캐릭터 평균 통계
               </h1>
               <p className="text-sm mt-2 max-w-2xl" style={{ color: "var(--text-secondary)" }}>
-                {IN1000_META.description}. 표본·승률·딜 등은 UI 확인용 가상 수치입니다.
+                DB에 적재된 실제 경기 데이터 기반 통계입니다.
               </p>
             </div>
           </div>
@@ -148,7 +177,7 @@ export default function StatsPage() {
               <Database size={13} style={{ color: accent }} />
               집계 스냅샷
             </div>
-            <div style={{ color: "var(--text-primary)" }}>갱신일 {IN1000_META.lastUpdated}</div>
+            <div style={{ color: "var(--text-primary)" }}>{loading ? "로딩 중..." : "로드 완료"}</div>
             <div className="mt-2 opacity-80">
               필터 행 {filtered.length} · 표본 합계 {totals.games.toLocaleString()} · 가중 승률{" "}
               {totals.blendedWin}%
@@ -173,19 +202,6 @@ export default function StatsPage() {
               style={{ color: "var(--text-primary)" }}
             />
           </div>
-          <div
-            className="flex-1 flex items-center gap-3 rounded-xl px-4 py-3"
-            style={{ background: "rgba(12,28,24,0.6)", border: `1px solid ${border}` }}
-          >
-            <Swords size={17} style={{ color: accent }} className="shrink-0 opacity-85" />
-            <input
-              value={weaponQ}
-              onChange={(e) => setWeaponQ(e.target.value)}
-              placeholder="무기 이름 필터"
-              className="flex-1 bg-transparent outline-none text-sm"
-              style={{ color: "var(--text-primary)" }}
-            />
-          </div>
         </div>
 
         <div
@@ -194,20 +210,24 @@ export default function StatsPage() {
         >
           <Info size={14} className="shrink-0 mt-0.5" style={{ color: accent }} />
           <span>
-            캐릭터 초상은 <span className="font-mono">public/images/character/default</span>의 미니 이미지를
-            사용합니다. 매핑 없는 실험체는 이니셜로 표시됩니다.
+            character 테이블에 이름이 있으면 함께 표시하며, 없으면 character_num 기준으로 노출합니다.
           </span>
         </div>
+        {error && (
+          <p className="mb-4 text-sm" style={{ color: "#f87171" }}>
+            오류: {error}
+          </p>
+        )}
 
         {/* 데스크톱 테이블 */}
         <div
           className="hidden md:block rounded-xl overflow-hidden"
           style={{
             border: `1px solid ${borderHi}`,
-            background: "linear-gradient(180deg, rgba(16,32,28,0.85) 0%, rgba(8,18,16,0.92) 100%)",
+            background: "linear-gradient(180deg, rgba(17,24,39,0.94) 0%, rgba(15,23,42,0.96) 100%)",
           }}
         >
-          <div className="overflow-x-auto">
+          <div className="max-h-[68vh] overflow-auto">
             <table className="w-full text-left text-sm border-collapse min-w-[920px]">
               <thead>
                 <tr
@@ -218,64 +238,90 @@ export default function StatsPage() {
                     background: "rgba(0,0,0,0.25)",
                   }}
                 >
-                  <th className="px-4 py-3 w-[200px]">실험체</th>
-                  <th className="px-3 py-3 w-[120px]">무기</th>
-                  <th className="px-3 py-3 text-right">표본</th>
-                  <th className="px-3 py-3 text-right">무기비중</th>
-                  <th className="px-3 py-3 text-right">승률</th>
-                  <th className="px-3 py-3 text-right">평균순위</th>
-                  <th className="px-3 py-3 text-right">평균K</th>
-                  <th className="px-3 py-3 text-right">평균A</th>
-                  <th className="px-3 py-3 text-right">평균D</th>
-                  <th className="px-4 py-3 text-right">평균딜</th>
+                  <th className="px-3 py-3 text-right sticky top-0 z-20" style={{ background: "rgba(17,24,39,0.98)" }}>순위</th>
+                  <th className="px-4 py-3 w-[200px] sticky top-0 z-20" style={{ background: "rgba(17,24,39,0.98)" }}>실험체</th>
+                  <th className="px-3 py-3 text-right sticky top-0 z-20" style={{ background: "rgba(17,24,39,0.98)" }}>표본</th>
+                  <th className="px-3 py-3 text-right sticky top-0 z-20" style={{ background: "rgba(17,24,39,0.98)" }}>티어</th>
+                  <th className="px-3 py-3 text-right sticky top-0 z-20" style={{ background: "rgba(17,24,39,0.98)" }}>티어점수</th>
+                  <th className="px-3 py-3 text-right sticky top-0 z-20" style={{ background: "rgba(17,24,39,0.98)" }}>픽률</th>
+                  <th className="px-3 py-3 text-right sticky top-0 z-20" style={{ background: "rgba(17,24,39,0.98)" }}>승률</th>
+                  <th className="px-3 py-3 text-right sticky top-0 z-20" style={{ background: "rgba(17,24,39,0.98)" }}>Top3%</th>
+                  <th className="px-3 py-3 text-right sticky top-0 z-20" style={{ background: "rgba(17,24,39,0.98)" }}>평균순위</th>
+                  <th className="px-3 py-3 text-right sticky top-0 z-20" style={{ background: "rgba(17,24,39,0.98)" }}>평균 킬</th>
+                  <th className="px-3 py-3 text-right sticky top-0 z-20" style={{ background: "rgba(17,24,39,0.98)" }}>평균 TK</th>
+                  <th className="px-3 py-3 text-right sticky top-0 z-20" style={{ background: "rgba(17,24,39,0.98)" }}>평균 RP</th>
+                  <th className="px-3 py-3 text-right sticky top-0 z-20" style={{ background: "rgba(17,24,39,0.98)" }}>평균딜(플레이어)</th>
+                  <th className="px-4 py-3 text-right sticky top-0 z-20" style={{ background: "rgba(17,24,39,0.98)" }}>평균딜(동물)</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((row, idx) => (
                   <tr
-                    key={`${row.characterKo}-${row.weaponName}-${idx}`}
+                    key={`${row.character_num}-${idx}`}
                     style={{
-                      borderBottom: "1px solid rgba(255,255,255,0.04)",
+                      borderBottom: "1px solid rgba(148,163,184,0.18)",
+                      background: idx % 2 === 0 ? "rgba(255,255,255,0.01)" : "rgba(255,255,255,0.03)",
                     }}
                   >
+                    <td className="px-3 py-3 text-right">
+                      <NumCell mono>{idx + 1}</NumCell>
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <StatThumb nameKo={row.characterKo} />
+                        <StatThumb nameKo={row.character_name ?? String(row.character_num)} />
                         <span className="font-semibold" style={{ color: "var(--text-primary)" }}>
-                          {row.characterKo}
+                          {row.character_name ?? `#${row.character_num}`}
                         </span>
                       </div>
-                    </td>
-                    <td className="px-3 py-3" style={{ color: "var(--text-primary)" }}>
-                      {row.weaponName}
                     </td>
                     <td className="px-3 py-3 text-right">
                       <NumCell mono>{row.games.toLocaleString()}</NumCell>
                     </td>
                     <td className="px-3 py-3 text-right">
-                      <NumCell mono>{row.weaponSharePct}%</NumCell>
+                      <span
+                        className="inline-flex items-center justify-center min-w-[38px] px-2 py-0.5 rounded-md text-xs font-black tracking-wide"
+                        style={{
+                          color: tierBadgeStyle(row.tier_grade).color,
+                          background: tierBadgeStyle(row.tier_grade).bg,
+                          border: `1px solid ${tierBadgeStyle(row.tier_grade).border}`,
+                        }}
+                      >
+                        {row.tier_grade}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 text-right">
+                      <NumCell mono>{row.tier_score}</NumCell>
+                    </td>
+                    <td className="px-3 py-3 text-right">
+                      <NumCell mono>{row.pick_rate_pct}%</NumCell>
                     </td>
                     <td className="px-3 py-3 text-right">
                       <NumCell mono>
-                        <span style={{ color: row.winRate >= 50 ? accent : "var(--text-primary)" }}>
-                          {row.winRate}%
+                        <span style={{ color: row.win_rate_pct >= 50 ? "#60a5fa" : "var(--text-primary)" }}>
+                          {row.win_rate_pct}%
                         </span>
                       </NumCell>
                     </td>
                     <td className="px-3 py-3 text-right">
-                      <NumCell mono>{row.avgRank}</NumCell>
+                      <NumCell mono>{row.top3_rate_pct}%</NumCell>
                     </td>
                     <td className="px-3 py-3 text-right">
-                      <NumCell mono>{row.avgKill}</NumCell>
+                      <NumCell mono>{row.avg_rank}</NumCell>
                     </td>
                     <td className="px-3 py-3 text-right">
-                      <NumCell mono>{row.avgAssist}</NumCell>
+                      <NumCell mono>{row.avg_kill}</NumCell>
                     </td>
                     <td className="px-3 py-3 text-right">
-                      <NumCell mono>{row.avgDeath}</NumCell>
+                      <NumCell mono>{row.avg_tk}</NumCell>
+                    </td>
+                    <td className="px-3 py-3 text-right">
+                      <NumCell mono>{row.avg_rp_gain}</NumCell>
+                    </td>
+                    <td className="px-3 py-3 text-right">
+                      <NumCell mono>{Math.round(row.avg_damage).toLocaleString()}</NumCell>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <NumCell mono>{row.avgDamage.toLocaleString()}</NumCell>
+                      <NumCell mono>{Math.round(row.avg_damage_to_monster).toLocaleString()}</NumCell>
                     </td>
                   </tr>
                 ))}
@@ -293,7 +339,7 @@ export default function StatsPage() {
         <div className="md:hidden space-y-3">
           {filtered.map((row, idx) => (
             <div
-              key={`${row.characterKo}-${row.weaponName}-m-${idx}`}
+              key={`${row.character_num}-m-${idx}`}
               className="rounded-xl p-4"
               style={{
                 border: `1px solid ${border}`,
@@ -301,14 +347,13 @@ export default function StatsPage() {
               }}
             >
               <div className="flex items-center gap-3 mb-3">
-                <StatThumb nameKo={row.characterKo} />
+                <StatThumb nameKo={row.character_name ?? String(row.character_num)} />
                 <div>
                   <div className="font-bold" style={{ color: "var(--text-primary)" }}>
-                    {row.characterKo}
+                    {row.character_name ?? `#${row.character_num}`}
                   </div>
-                  <div className="text-xs flex items-center gap-1.5 mt-0.5" style={{ color: accent }}>
-                    <Swords size={12} />
-                    {row.weaponName}
+                  <div className="text-xs mt-0.5" style={{ color: accent }}>
+                    character_num: {row.character_num}
                   </div>
                 </div>
               </div>
@@ -317,22 +362,47 @@ export default function StatsPage() {
                   표본 <span style={{ color: "var(--text-primary)" }}>{row.games}</span>
                 </div>
                 <div>
-                  무기비중 <span style={{ color: "var(--text-primary)" }}>{row.weaponSharePct}%</span>
-                </div>
-                <div>
-                  승률 <span style={{ color: accent }}>{row.winRate}%</span>
-                </div>
-                <div>
-                  평균순위 <span style={{ color: "var(--text-primary)" }}>{row.avgRank}</span>
-                </div>
-                <div>
-                  K/A/D{" "}
-                  <span style={{ color: "var(--text-primary)" }}>
-                    {row.avgKill}/{row.avgAssist}/{row.avgDeath}
+                  티어{" "}
+                  <span
+                    className="inline-flex items-center justify-center min-w-[34px] px-1.5 py-0.5 rounded-md text-[11px] font-black"
+                    style={{
+                      color: tierBadgeStyle(row.tier_grade).color,
+                      background: tierBadgeStyle(row.tier_grade).bg,
+                      border: `1px solid ${tierBadgeStyle(row.tier_grade).border}`,
+                    }}
+                  >
+                    {row.tier_grade}
                   </span>
                 </div>
                 <div>
-                  평균딜 <span style={{ color: "var(--text-primary)" }}>{row.avgDamage.toLocaleString()}</span>
+                  티어점수 <span style={{ color: "var(--text-primary)" }}>{row.tier_score}</span>
+                </div>
+                <div>
+                  픽률 <span style={{ color: "var(--text-primary)" }}>{row.pick_rate_pct}%</span>
+                </div>
+                <div>
+                  승률 <span style={{ color: accent }}>{row.win_rate_pct}%</span>
+                </div>
+                <div>
+                  TOP3 <span style={{ color: "var(--text-primary)" }}>{row.top3_rate_pct}%</span>
+                </div>
+                <div>
+                  평균순위 <span style={{ color: "var(--text-primary)" }}>{row.avg_rank}</span>
+                </div>
+                <div>
+                  평균킬 <span style={{ color: "var(--text-primary)" }}>{row.avg_kill}</span>
+                </div>
+                <div>
+                  평균TK <span style={{ color: "var(--text-primary)" }}>{row.avg_tk}</span>
+                </div>
+                <div>
+                  평균RP <span style={{ color: "var(--text-primary)" }}>{row.avg_rp_gain}</span>
+                </div>
+                <div>
+                  딜(플레이어) <span style={{ color: "var(--text-primary)" }}>{Math.round(row.avg_damage).toLocaleString()}</span>
+                </div>
+                <div>
+                  딜(동물) <span style={{ color: "var(--text-primary)" }}>{Math.round(row.avg_damage_to_monster).toLocaleString()}</span>
                 </div>
               </div>
             </div>

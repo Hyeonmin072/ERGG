@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime
 from sqlalchemy import BigInteger, Integer, Float, String, DateTime, func, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -8,7 +10,8 @@ class OctagonScore(Base):
     __tablename__ = "octagon_scores"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    user_num: Mapped[int] = mapped_column(BigInteger, ForeignKey("players.user_num"), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(String(200), ForeignKey("players.user_id"), nullable=False, index=True)
+    user_num: Mapped[int | None] = mapped_column(BigInteger, nullable=True, index=True)
     season_id: Mapped[int] = mapped_column(Integer, nullable=False)
     matching_mode: Mapped[int] = mapped_column(Integer, nullable=False)
 

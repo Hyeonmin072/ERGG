@@ -409,3 +409,27 @@ export interface RouteRecommendation {
   priorityItems: string[];
   reasoning: string;
 }
+
+/** /api/stats/characters */
+export interface CharacterStatsRow {
+  character_num: number;
+  character_name: string | null;
+  games: number;
+  tier_score: number;
+  tier_grade: string;
+  pick_rate_pct: number;
+  win_rate_pct: number;
+  top3_rate_pct: number;
+  avg_rank: number;
+  avg_damage: number;
+  avg_damage_to_monster: number;
+  avg_rp_gain: number;
+  avg_tk: number;
+  avg_kill: number;
+}
+
+export interface CharacterStatsResponse {
+  total_games: number;
+  count: number;
+  items: CharacterStatsRow[];
+}

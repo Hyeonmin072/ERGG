@@ -7,10 +7,19 @@ import type {
   PlayerStats,
   PlayerGamesResponse,
   OctagonScore,
+  CharacterStatsResponse,
 } from "./types";
 
-const BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api";
+function normalizeBaseUrl(raw?: string): string {
+  const fallback = "http://localhost:8000/api/v1";
+  if (!raw) return fallback;
+  const trimmed = raw.replace(/\/+$/, "");
+  if (trimmed.endsWith("/api/v1")) return trimmed;
+  if (trimmed.endsWith("/api")) return `${trimmed}/v1`;
+  return trimmed;
+}
+
+const BASE_URL = normalizeBaseUrl(process.env.NEXT_PUBLIC_API_URL);
 
 // ── 공통 fetch 래퍼 ──────────────────────────────────────────
 
@@ -159,4 +168,17 @@ export async function getRouteRecommendation(prompt: string): Promise<{
     method: "POST",
     body: JSON.stringify({ prompt }),
   });
+}
+
+/**
+ * 캐릭터 통계 조회
+ * GET /api/stats/characters?min_games={minGames}&limit={limit}
+ */
+export async function getCharacterStats(
+  minGames = 10,
+  limit = 100
+): Promise<CharacterStatsResponse> {
+  return apiFetch<CharacterStatsResponse>(
+    `/stats/characters?min_games=${minGames}&limit=${limit}`
+  );
 }

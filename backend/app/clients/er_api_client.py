@@ -34,6 +34,10 @@ class ErApiClient:
         """닉네임으로 userNum 조회."""
         return await self._get("/v1/user/nickname", params={"query": nickname})
 
+    async def get_user_by_user_id(self, user_id: str) -> dict:
+        """userId로 유저 조회 (지원되는 경우)."""
+        return await self._get(f"/v1/user/userid/{user_id}")
+
     async def get_user_stats(self, user_num: int, season_id: int) -> dict:
         """유저 랭크 스탯 조회."""
         return await self._get(f"/v1/user/stats/{user_num}/{season_id}")
@@ -44,6 +48,13 @@ class ErApiClient:
         if next_cursor:
             params["next"] = next_cursor
         return await self._get(f"/v1/user/games/{user_num}", params=params)
+
+    async def get_user_games_by_user_id(self, user_id: str, next_cursor: str | None = None) -> dict:
+        """userId 기준 유저 게임 목록 조회 (최신순, cursor 페이지네이션)."""
+        params = {}
+        if next_cursor:
+            params["next"] = next_cursor
+        return await self._get(f"/v1/user/games/uid/{user_id}", params=params)
 
     async def get_game_detail(self, game_id: int) -> dict:
         """특정 게임 상세 조회."""

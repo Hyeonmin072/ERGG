@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from sqlalchemy import (
     BigInteger, Integer, SmallInteger, String, Float, Numeric,
     Boolean, Text, ForeignKey, UniqueConstraint
@@ -13,7 +15,8 @@ class GameDetail(Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     game_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("games.game_id", ondelete="CASCADE"), nullable=False, index=True)
-    user_num: Mapped[int] = mapped_column(BigInteger, ForeignKey("players.user_num"), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(String(200), ForeignKey("players.user_id"), nullable=False, index=True)
+    user_num: Mapped[int | None] = mapped_column(BigInteger, nullable=True, index=True)
 
     # ── 캐릭터
     character_num: Mapped[int] = mapped_column(Integer, default=0)
@@ -242,7 +245,7 @@ class GameDetail(Base):
     expire_dtm: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     __table_args__ = (
-        UniqueConstraint("game_id", "user_num", name="uq_game_user"),
+        UniqueConstraint("game_id", "user_id", name="uq_game_user"),
     )
 
     # Relationships
