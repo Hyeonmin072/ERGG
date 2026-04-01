@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   LineChart,
   ArrowLeft,
@@ -17,7 +17,14 @@ import {
   TrendingUp,
   BarChart3,
 } from "lucide-react";
-import { searchPlayer, getPlayerStats, getPlayerGames, getOctagonScore, ApiError } from "@/lib/api";
+import {
+  searchPlayer,
+  getPlayerGamesByUserId,
+  getOctagonScoreByUserId,
+  getCharacterCatalog,
+  ApiError,
+} from "@/lib/api";
+import { buildCharacterCatalogMap, type CharacterCatalogMap } from "@/lib/characterDisplay";
 import { MOCK_PLAYER, calcProfileStats, getTierFromRP } from "@/lib/mock";
 import type { PlayerStats, UserGame, OctagonScore } from "@/lib/types";
 import {
@@ -28,6 +35,7 @@ import {
   type CharacterUsageRow,
 } from "@/lib/personalMetrics";
 import OctagonChart from "@/components/OctagonChart";
+import { computeOctagonFromUserGames } from "@/lib/octagonFromGames";
 
 const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "true";
 /** 더미(김현민)로 화면을 바로 채움: 로컬 개발 또는 목 API 모드 */
@@ -107,7 +115,7 @@ function buildDummyDashboard() {
   const g = MOCK_PLAYER.recentGames;
   return {
     nickname: DEMO_NICKNAME,
-    userNum: MOCK_PLAYER.userNum,
+    userId: MOCK_PLAYER.userId,
     games: g,
     stats: null as PlayerStats | null,
     octagon: MOCK_PLAYER.octagon,
@@ -123,7 +131,7 @@ export default function PersonalMetricsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nickname, setNickname] = useState<string | null>(INITIAL_DUMMY_STATE?.nickname ?? null);
-  const [userNum, setUserNum] = useState<number | null>(INITIAL_DUMMY_STATE?.userNum ?? null);
+  const [userId, setUserId] = useState<string | null>(INITIAL_DUMMY_STATE?.userId ?? null);
   const [games, setGames] = useState<UserGame[]>(INITIAL_DUMMY_STATE?.games ?? []);
   const [stats, setStats] = useState<PlayerStats | null>(INITIAL_DUMMY_STATE?.stats ?? null);
   const [octagon, setOctagon] = useState<OctagonScore | null>(INITIAL_DUMMY_STATE?.octagon ?? null);
@@ -131,6 +139,13 @@ export default function PersonalMetricsPage() {
     INITIAL_DUMMY_STATE?.profileRollup ?? null
   );
   const [rankPoint, setRankPoint] = useState(INITIAL_DUMMY_STATE?.rankPoint ?? 0);
+  const [charCatalog, setCharCatalog] = useState<CharacterCatalogMap>({});
+
+  useEffect(() => {
+    getCharacterCatalog()
+      .then((r) => setCharCatalog(buildCharacterCatalogMap(r.items)))
+      .catch(() => setCharCatalog({}));
+  }, []);
 
   const load = useCallback(async () => {
     const nick = q.trim();
@@ -146,10 +161,15 @@ export default function PersonalMetricsPage() {
       const g = MOCK_PLAYER.recentGames;
       const roll = calcProfileStats(g);
       setNickname(nick);
-      setUserNum(MOCK_PLAYER.userNum);
+      setUserId(MOCK_PLAYER.userId);
       setGames(g);
       setStats(null);
-      setOctagon(MOCK_PLAYER.octagon);
+      setOctagon(
+        computeOctagonFromUserGames(g, {
+          userId: MOCK_PLAYER.userId ?? "",
+          matchingMode: 3,
+        }) ?? MOCK_PLAYER.octagon
+      );
       setProfileRollup(roll);
       setRankPoint(MOCK_PLAYER.rankPoint);
       setLoading(false);
@@ -157,23 +177,41 @@ export default function PersonalMetricsPage() {
     }
 
     try {
-      const { userNum: uid } = await searchPlayer(nick);
-      const [statsRes, gamesRes, octRes] = await Promise.allSettled([
-        getPlayerStats(uid),
-        getPlayerGames(uid),
-        getOctagonScore(uid),
+      const searchResult = await searchPlayer(nick);
+      const resolvedUserId = searchResult.userId?.trim() || null;
+      if (!resolvedUserId) {
+        setError(`"${nick}" 플레이어의 userId를 찾을 수 없습니다.`);
+        setNickname(null);
+        setUserId(null);
+        setGames([]);
+        setStats(null);
+        setOctagon(null);
+        setProfileRollup(null);
+        setRankPoint(0);
+        setLoading(false);
+        return;
+      }
+      const [gamesRes, octRes] = await Promise.allSettled([
+        getPlayerGamesByUserId(resolvedUserId),
+        getOctagonScoreByUserId(resolvedUserId),
       ]);
-      const st = statsRes.status === "fulfilled" ? statsRes.value : null;
+      if (gamesRes.status === "rejected") {
+        throw gamesRes.reason;
+      }
       const gd = gamesRes.status === "fulfilled" ? gamesRes.value : null;
-      const oc = octRes.status === "fulfilled" ? octRes.value : null;
+      const ocApi = octRes.status === "fulfilled" ? octRes.value : null;
       const list = gd?.games ?? [];
+      const ocFromGames = computeOctagonFromUserGames(list, {
+        userId: resolvedUserId,
+        matchingMode: 3,
+      });
       setNickname(nick);
-      setUserNum(uid);
+      setUserId(resolvedUserId);
       setGames(list);
-      setStats(st);
-      setOctagon(oc);
+      setStats(null);
+      setOctagon(ocFromGames ?? ocApi);
       setProfileRollup(calcProfileStats(list));
-      setRankPoint(st?.rankPoint ?? list[0]?.rankPoint ?? 0);
+      setRankPoint(list[0]?.rankPoint ?? 0);
     } catch (e) {
       if (e instanceof ApiError) {
         setError(e.status === 404 ? `"${nick}" 플레이어를 찾을 수 없습니다.` : e.message);
@@ -181,7 +219,7 @@ export default function PersonalMetricsPage() {
         setError("불러오기에 실패했습니다.");
       }
       setNickname(null);
-      setUserNum(null);
+      setUserId(null);
       setGames([]);
       setStats(null);
       setOctagon(null);
@@ -194,10 +232,10 @@ export default function PersonalMetricsPage() {
 
   const combat = aggregateCombatMetrics(games);
   const usageFromApi = characterUsageFromStats(stats, 10);
-  const usageFromGames = characterUsageFromGames(games, 10);
+  const usageFromGames = characterUsageFromGames(games, 10, charCatalog);
   const usage = usageFromApi.length > 0 ? usageFromApi : usageFromGames;
   const maxUsage = usage[0]?.count ?? 1;
-  const recent = recentGamesMetrics(games, 14);
+  const recent = recentGamesMetrics(games, 14, charCatalog);
   const maxDmg = Math.max(1, ...recent.map((r) => r.damage));
 
   const tier = getTierFromRP(rankPoint);
@@ -307,7 +345,7 @@ export default function PersonalMetricsPage() {
           </div>
         )}
 
-        {nickname && userNum != null && profileRollup && (
+        {nickname && userId != null && profileRollup && (
           <div className="space-y-8 fade-in">
             <div
               className="flex flex-wrap items-center justify-between gap-4 rounded-xl px-4 py-4"
@@ -318,7 +356,7 @@ export default function PersonalMetricsPage() {
             >
               <div>
                 <p className="text-xs font-mono" style={{ color: "var(--text-secondary)" }}>
-                  TARGET · userNum {userNum}
+                  TARGET · userId {userId}
                 </p>
                 <p className="text-xl font-black mt-0.5" style={{ color: "var(--text-primary)" }}>
                   {nickname}
@@ -364,12 +402,11 @@ export default function PersonalMetricsPage() {
                   </div>
                   <OctagonChart
                     scores={{
-                      combat: octagon.combat,
-                      takedown: octagon.takedown,
+                      engagement: octagon.engagement,
                       hunting: octagon.hunting,
                       vision: octagon.vision,
-                      mastery: octagon.mastery,
                       survival: octagon.survival,
+                      sustain: octagon.sustain,
                     }}
                     grade={octagon.centerGrade}
                     size={300}
@@ -386,7 +423,7 @@ export default function PersonalMetricsPage() {
                 >
                   옥타곤 지표를 불러오지 못했습니다. 백엔드{" "}
                   <span className="font-mono text-[11px]" style={{ color: accent }}>
-                    /api/octagon
+                    /api/octagon/by-user-id
                   </span>{" "}
                   연동 후 표시됩니다.
                 </div>

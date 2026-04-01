@@ -1,12 +1,29 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { buildCharacterCatalogMap, type CharacterCatalogMap } from "@/lib/characterDisplay";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import OctagonChart from "@/components/OctagonChart";
 import GameHistoryRow from "@/components/GameHistoryRow";
-import { MOCK_PLAYER, getTierColor, getTierImage, formatNumber, getTierFromRP, calcProfileStats } from "@/lib/mock";
-import { searchPlayer, getPlayerStats, getPlayerGames, getOctagonScore, refreshPlayer, ApiError } from "@/lib/api";
+import GameDetailModal from "@/components/GameDetailModal";
+import { computeOctagonFromUserGames } from "@/lib/octagonFromGames";
+import {
+  MOCK_PLAYER,
+  getTierColorFromRP,
+  getTierImageFromRP,
+  formatNumber,
+  getTierFromRP,
+  calcProfileStats,
+} from "@/lib/mock";
+import {
+  searchPlayer,
+  getPlayerGamesByUserId,
+  getOctagonScoreByUserId,
+  refreshPlayerByUserId,
+  getCharacterCatalog,
+  ApiError,
+} from "@/lib/api";
 import type { PlayerProfile, UserGame } from "@/lib/types";
 import { RefreshCw, ChevronRight, Trophy, Sword, Target, Clock, AlertCircle } from "lucide-react";
 
@@ -15,8 +32,10 @@ const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "true";
 const WHITE_ACCENT = "rgba(255,255,255,0.92)";
 
 export default function PlayerPage() {
-  const { userNum: rawParam } = useParams<{ userNum: string }>();
-  const nickname = decodeURIComponent(rawParam);
+  const { nickname: rawParam } = useParams<{ nickname: string }>();
+  const nickname = decodeURIComponent(
+    Array.isArray(rawParam) ? rawParam[0] : rawParam
+  ).trim();
 
   const [player, setPlayer] = useState<PlayerProfile | null>(null);
   const [games, setGames] = useState<UserGame[]>([]);
@@ -25,6 +44,26 @@ export default function PlayerPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [charCatalog, setCharCatalog] = useState<CharacterCatalogMap>({});
+  const [detailGame, setDetailGame] = useState<UserGame | null>(null);
+
+  /** 로드된 전적 목록 기준 랭크 최대 20판 — 더보기 후에도 최신 20판 유지 */
+  const displayOctagon = useMemo(() => {
+    if (!player?.userId) return null;
+    if (games.length > 0) {
+      return (
+        computeOctagonFromUserGames(games, { userId: player.userId, matchingMode: 3 }) ??
+        player.octagon
+      );
+    }
+    return player.octagon;
+  }, [player?.userId, player?.octagon, games]);
+
+  useEffect(() => {
+    getCharacterCatalog()
+      .then((r) => setCharCatalog(buildCharacterCatalogMap(r.items ?? [])))
+      .catch(() => setCharCatalog({}));
+  }, []);
 
   // ── 데이터 로드 ──────────────────────────────────────────────
   const loadPlayer = useCallback(async () => {
@@ -32,44 +71,66 @@ export default function PlayerPage() {
     setError(null);
 
     if (USE_MOCK) {
-      // Todo : 백엔드 데이터(검색/스탯/전적/옥타곤) 정상화 이후 목 데이터 제거
       await new Promise((r) => setTimeout(r, 600));
-      setPlayer({ ...MOCK_PLAYER, nickname });
-      setGames(MOCK_PLAYER.recentGames);
+      const recentGames = MOCK_PLAYER.recentGames;
+      const octagonFromGames = computeOctagonFromUserGames(recentGames, {
+        userId: MOCK_PLAYER.userId ?? "",
+        matchingMode: 3,
+      });
+      setPlayer({
+        ...MOCK_PLAYER,
+        nickname,
+        octagon: octagonFromGames ?? MOCK_PLAYER.octagon,
+      });
+      setGames(recentGames);
       setLoading(false);
       return;
     }
 
     try {
-      // 1) 닉네임 → userNum 조회
       const searchResult = await searchPlayer(nickname);
-      const uid = searchResult.userNum;
+      const userId = searchResult.userId?.trim() || null;
 
-      // 2) 스탯 + 게임 + 옥타곤 병렬 요청
-      const [statsResult, gamesResult, octagonResult] = await Promise.allSettled([
-        getPlayerStats(uid),
-        getPlayerGames(uid),
-        getOctagonScore(uid),
+      if (!userId) {
+        setError(`"${nickname}" 플레이어의 userId를 찾을 수 없습니다.`);
+        return;
+      }
+
+      const gamesPromise = getPlayerGamesByUserId(userId);
+      const octagonPromise = getOctagonScoreByUserId(userId);
+
+      const [gamesResult, octagonResult] = await Promise.allSettled([
+        gamesPromise,
+        octagonPromise,
       ]);
 
-      const stats = statsResult.status === "fulfilled" ? statsResult.value : null;
       const gamesData = gamesResult.status === "fulfilled" ? gamesResult.value : null;
-      const octagon = octagonResult.status === "fulfilled" ? octagonResult.value : null;
+      const octagonApi = octagonResult.status === "fulfilled" ? octagonResult.value : null;
+
+      if (gamesResult.status === "rejected") {
+        throw gamesResult.reason;
+      }
 
       const recentGames = gamesData?.games ?? [];
       const { winRate, totalGames, avgKill, avgDamage, avgRank } = calcProfileStats(recentGames);
 
-      const rankPoint = stats?.rankPoint ?? 0;
+      const rankPoint = recentGames[0]?.rankPoint ?? 0;
       const tier = getTierFromRP(rankPoint);
 
+      const octagonFromGames = computeOctagonFromUserGames(recentGames, {
+        userId,
+        matchingMode: 3,
+      });
+      const octagon = octagonFromGames ?? octagonApi;
+
       setPlayer({
-        userNum: uid,
-        nickname,
+        userId,
+        nickname: searchResult.nickname || nickname,
         accountLevel: recentGames[0]?.accountLevel ?? 0,
         rankPoint,
         tier,
         lastSyncAt: new Date().toISOString(),
-        stats,
+        stats: null,
         octagon,
         recentGames,
         winRate,
@@ -95,21 +156,23 @@ export default function PlayerPage() {
 
   // ── 갱신 ─────────────────────────────────────────────────────
   const handleRefresh = async () => {
-    if (!player || refreshing) return;
+    if (!player || refreshing || !player.userId) return;
     setRefreshing(true);
     if (!USE_MOCK) {
-      try { await refreshPlayer(player.userNum); } catch {}
+      try {
+        await refreshPlayerByUserId(player.userId);
+      } catch {}
     }
     await loadPlayer();
     setRefreshing(false);
   };
 
-  // ── 더보기 ───────────────────────────────────────────────────
+  // ── 더보기 (ER 응답의 next 를 cursor 로 전달) ─────────────────
   const handleLoadMore = async () => {
-    if (!player || !nextCursor || loadingMore) return;
+    if (!player?.userId || !nextCursor || loadingMore) return;
     setLoadingMore(true);
     try {
-      const more = await getPlayerGames(player.userNum, nextCursor);
+      const more = await getPlayerGamesByUserId(player.userId, nextCursor);
       setGames((prev) => [...prev, ...more.games]);
       setNextCursor(more.next);
     } catch {}
@@ -143,7 +206,8 @@ export default function PlayerPage() {
     );
   }
 
-  const tierColor = getTierColor(player.tier);
+  const tierColor = getTierColorFromRP(player.rankPoint);
+  const tierImageSrc = getTierImageFromRP(player.rankPoint);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 fade-in">
@@ -161,7 +225,7 @@ export default function PlayerPage() {
           {/* 티어 이미지 */}
           <div className="w-16 h-16 shrink-0 flex items-center justify-center">
             <Image
-              src={getTierImage(player.tier)}
+              src={tierImageSrc}
               alt={player.tier}
               width={64}
               height={64}
@@ -182,7 +246,7 @@ export default function PlayerPage() {
                   border: `1px solid ${tierColor}44`,
                 }}
               >
-                <Image src={getTierImage(player.tier)} alt={player.tier} width={14} height={14} />
+                <Image src={tierImageSrc} alt={player.tier} width={14} height={14} />
                 {player.tier}
               </span>
               <span
@@ -234,8 +298,9 @@ export default function PlayerPage() {
               <RefreshCw size={12} className={refreshing ? "animate-spin" : ""} />
               {refreshing ? "갱신 중..." : "갱신"}
             </button>
+            {player.userId && (
             <Link
-              href={`/ai/defeat?userNum=${player.userNum}`}
+              href={`/ai/defeat?userId=${encodeURIComponent(player.userId)}`}
               className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-bold transition-all"
               style={{
                 background: "linear-gradient(135deg, rgba(248,113,113,0.35), rgba(255,255,255,0.78))",
@@ -247,6 +312,7 @@ export default function PlayerPage() {
               AI 패배 원인 분석
               <ChevronRight size={11} />
             </Link>
+            )}
           </div>
         </div>
       </div>
@@ -267,16 +333,16 @@ export default function PlayerPage() {
             <h2 className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>
               옥타곤 지표
             </h2>
-            {player.octagon && (
+            {displayOctagon && (
               <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
-                최근 {player.octagon.gamesAnalyzed}게임
+                최근 {displayOctagon.gamesAnalyzed}게임
               </span>
             )}
           </div>
-          {player.octagon ? (
+          {displayOctagon ? (
             <OctagonChart
-              scores={player.octagon}
-              grade={player.octagon.centerGrade}
+              scores={displayOctagon}
+              grade={displayOctagon.centerGrade}
               size={280}
             />
           ) : (
@@ -306,7 +372,12 @@ export default function PlayerPage() {
 
           <div className="flex flex-col gap-2">
             {games.map((game) => (
-              <GameHistoryRow key={game.gameId} game={game} />
+              <GameHistoryRow
+                key={game.gameId}
+                game={game}
+                catalog={charCatalog}
+                onSelect={setDetailGame}
+              />
             ))}
           </div>
 
@@ -328,6 +399,12 @@ export default function PlayerPage() {
           )}
         </div>
       </div>
+
+      <GameDetailModal
+        game={detailGame}
+        catalog={charCatalog}
+        onClose={() => setDetailGame(null)}
+      />
     </div>
   );
 }

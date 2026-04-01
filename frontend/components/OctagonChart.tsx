@@ -1,27 +1,50 @@
 "use client";
 import { getGradeColor } from "@/lib/mock";
+import type { OctagonScore } from "@/lib/types";
+
+type ChartScores = Pick<
+  OctagonScore,
+  "engagement" | "hunting" | "vision" | "survival" | "sustain"
+>;
 
 interface OctagonChartProps {
-  scores: {
-    combat: number;
-    takedown: number;
-    hunting: number;
-    vision: number;
-    mastery: number;
-    survival: number;
-  };
+  scores: ChartScores;
   grade: string;
   size?: number;
 }
 
 const AXES = [
-  { key: "combat",   label: "전투",  labelKo: "COMBAT" },
-  { key: "takedown", label: "결투",  labelKo: "TAKEDOWN" },
-  { key: "hunting",  label: "사냥",  labelKo: "HUNTING" },
-  { key: "vision",   label: "시야",  labelKo: "VISION" },
-  { key: "mastery",  label: "마스터리", labelKo: "MASTERY" },
-  { key: "survival", label: "생존",  labelKo: "SURVIVAL" },
-] as const;
+  {
+    key: "engagement" as const,
+    label: "교전",
+    labelKo: "ENGAGE",
+    hint: "20판 평균: 분당 딜·킬·스킬딜비(전투) + 킬관여·어시·전술·CC(결투) 통합 50:50",
+  },
+  {
+    key: "hunting" as const,
+    label: "사냥",
+    labelKo: "HUNTING",
+    hint: "20판 평균: 동물킬·VF 획득(정규화, 동물킬 50± 중·상 구간)",
+  },
+  {
+    key: "vision" as const,
+    label: "시야",
+    labelKo: "VISION",
+    hint: "20판 평균: 감시·망원 카메라·view 기여 (이터 상위 평균 ~25점대로 스케일)",
+  },
+  {
+    key: "survival" as const,
+    label: "생존",
+    labelKo: "SURVIVAL",
+    hint: "20판 평균: 순위, 생존 가능 시간",
+  },
+  {
+    key: "sustain" as const,
+    label: "내구",
+    labelKo: "SUSTAIN",
+    hint: "20판 평균: 분당 회복량, 보호막 흡수, 팀 회복",
+  },
+];
 
 function polarToCart(cx: number, cy: number, r: number, angleIdx: number, total: number) {
   // Start from top (-90deg), go clockwise
@@ -134,6 +157,7 @@ export default function OctagonChart({ scores, grade, size = 300 }: OctagonChart
         {/* Axis labels */}
         {labels.map((l, i) => (
           <g key={i}>
+            <title>{l.hint}</title>
             <text
               x={l.x}
               y={l.y - 3}
@@ -163,7 +187,7 @@ export default function OctagonChart({ scores, grade, size = 300 }: OctagonChart
         {AXES.map((axis) => {
           const val = scores[axis.key];
           return (
-            <div key={axis.key}>
+            <div key={axis.key} title={axis.hint}>
               <div className="flex justify-between text-xs mb-0.5">
                 <span style={{ color: "var(--text-secondary)" }}>{axis.label}</span>
                 <span style={{ color: gradeColor }}>{Math.round(val)}</span>

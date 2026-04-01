@@ -1,9 +1,21 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# config.py 위치: backend/app/core/config.py → backend 루트 (cwd와 무관하게 .env 로드)
+_BACKEND_ROOT = Path(__file__).resolve().parent.parent.parent
+# 둘 다 있으면 뒤쪽(backend/.env)이 우선(덮어씀)
+_ENV_CANDIDATES = (
+    _BACKEND_ROOT.parent / ".env",
+    _BACKEND_ROOT / ".env",
+)
+_ENV_FILES = tuple(str(p) for p in _ENV_CANDIDATES if p.is_file())
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=("backend/.env", ".env"),
+        env_file=_ENV_FILES if _ENV_FILES else None,
+        env_file_encoding="utf-8",
         extra="ignore",
     )
 

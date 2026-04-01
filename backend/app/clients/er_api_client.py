@@ -31,30 +31,57 @@ class ErApiClient:
                 await asyncio.sleep(1.0)  # Rate limit 대응
 
     async def search_by_nickname(self, nickname: str) -> dict:
-        """닉네임으로 userNum 조회."""
-        return await self._get("/v1/user/nickname", params={"query": nickname})
+        """
+        닉네임으로 유저 조회.
+
+        BSER API는 앞뒤 공백이 포함된 query에서 404를 반환하므로 반드시 strip 한다.
+        """
+        nick = (nickname or "").strip()
+        return await self._get("/v1/user/nickname", params={"query": nick})
 
     async def get_user_by_user_id(self, user_id: str) -> dict:
         """userId로 유저 조회 (지원되는 경우)."""
         return await self._get(f"/v1/user/userid/{user_id}")
 
-    async def get_user_stats(self, user_num: int, season_id: int) -> dict:
-        """유저 랭크 스탯 조회."""
-        return await self._get(f"/v1/user/stats/{user_num}/{season_id}")
-
-    async def get_user_games(self, user_num: int, next_cursor: str | None = None) -> dict:
-        """유저 게임 목록 조회 (최신순, cursor 페이지네이션)."""
-        params = {}
-        if next_cursor:
-            params["next"] = next_cursor
-        return await self._get(f"/v1/user/games/{user_num}", params=params)
-
     async def get_user_games_by_user_id(self, user_id: str, next_cursor: str | None = None) -> dict:
-        """userId 기준 유저 게임 목록 조회 (최신순, cursor 페이지네이션)."""
+        """
+        GET /v1/user/games/uid/{userId}
+        페이지당 최대 약 10건, 다음 페이지는 응답의 `next`를 쿼리 `?next=` 로 전달.
+        """
         params = {}
         if next_cursor:
             params["next"] = next_cursor
         return await self._get(f"/v1/user/games/uid/{user_id}", params=params)
+
+    async def get_user_games_by_user_id_merged(
+        self,
+        user_id: str,
+        *,
+        start_cursor: str | None = None,
+        max_pages: int = 2,
+    ) -> dict:
+        """
+        동일 userId로 연속 페이지를 호출해 userGames를 합친다.
+        (1페이지 ~10건 + next로 2페이지 ~10건 → 최대 ~20건)
+        """
+        uid = user_id.strip()
+        merged: list[dict] = []
+        cur: str | None = start_cursor
+        last: dict = {}
+        for _ in range(max(1, min(max_pages, 10))):
+            last = await self.get_user_games_by_user_id(uid, next_cursor=cur)
+            if last.get("code") != 200:
+                return {
+                    "code": last.get("code"),
+                    "userGames": merged,
+                    "next": last.get("next"),
+                }
+            merged.extend(last.get("userGames") or [])
+            nxt = last.get("next")
+            if not nxt:
+                return {"code": 200, "userGames": merged, "next": None}
+            cur = nxt
+        return {"code": 200, "userGames": merged, "next": last.get("next")}
 
     async def get_game_detail(self, game_id: int) -> dict:
         """특정 게임 상세 조회."""

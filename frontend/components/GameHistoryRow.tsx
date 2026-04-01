@@ -1,34 +1,96 @@
 "use client";
+import Image from "next/image";
 import type { UserGame } from "@/lib/types";
 import {
-  formatDuration, formatNumber, CHARACTER_NAMES,
+  formatDuration, formatNumber,
   calcKillParticipation, getTeamModeLabel,
 } from "@/lib/mock";
+import { getCharacterDefaultMiniSrc } from "@/lib/characterDefaultMini";
+import {
+  resolveCharacterDisplayName,
+  type CharacterCatalogMap,
+} from "@/lib/characterDisplay";
 import { Sword, Shield, Skull } from "lucide-react";
 
 interface GameHistoryRowProps {
   game: UserGame;
+  /** Supabase character 테이블 기반 (GET /catalog/characters) */
+  catalog?: CharacterCatalogMap | null;
+  /** 행 클릭 시 상세 모달 */
+  onSelect?: (game: UserGame) => void;
 }
 
-export default function GameHistoryRow({ game }: GameHistoryRowProps) {
+/** 1위 금색 알지비 R208 G192 B138 */
+const RANK_FIRST_GOLD = "#d0c08a";
+
+/** 전적 행 공통 배경 (은은한 회색) */
+const ROW_BG = "rgba(71, 85, 105, 0.22)";
+
+/** 순위별 좌측 강조선 색만. 1금 2은 3동·그 외 회색 */
+function rankBorderColor(gameRank: number): string {
+  switch (gameRank) {
+    case 1:
+      return RANK_FIRST_GOLD;
+    case 2:
+      return "#cbd5e1";
+    case 3:
+      return "#b45309";
+    default:
+      return "#64748b";
+  }
+}
+
+export default function GameHistoryRow({ game, catalog, onSelect }: GameHistoryRowProps) {
   const isWin = game.victory === 1 || game.gameRank === 1;
-  const charName = CHARACTER_NAMES[game.characterNum] ?? `#${game.characterNum}`;
+  const rankBorder = rankBorderColor(game.gameRank ?? 0);
+  const charName = resolveCharacterDisplayName(game.characterNum, catalog);
+  const miniSrc = getCharacterDefaultMiniSrc(charName);
   const kp = calcKillParticipation(game);
   const teamModeLabel = getTeamModeLabel(game.matchingTeamMode);
 
+  const isFirst = game.gameRank === 1;
+
   return (
     <div
+      role={onSelect ? "button" : undefined}
+      tabIndex={onSelect ? 0 : undefined}
+      onClick={onSelect ? () => onSelect(game) : undefined}
+      onKeyDown={
+        onSelect
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onSelect(game);
+              }
+            }
+          : undefined
+      }
       className={`card-hover rounded-lg px-4 py-3 flex items-center gap-4 text-sm ${
-        isWin ? "win-bg" : "loss-bg"
-      }`}
+        isFirst ? "rank-first-shimmer" : ""
+      } ${onSelect ? "cursor-pointer" : ""}`}
+      style={{
+        backgroundColor: ROW_BG,
+        borderLeft: `3px solid ${rankBorder}`,
+      }}
     >
       {/* 승패 + 순위 + 시간 */}
       <div className="shrink-0 flex flex-col items-center w-12">
         <span
-          className="text-xs font-bold"
-          style={{ color: isWin ? "#00ff88" : "#ff3b3b" }}
+          className={`text-xs font-bold ${isFirst ? "rank-first-label" : ""}`}
+          style={{
+            color:
+              isFirst
+                ? RANK_FIRST_GOLD
+                : isWin
+                  ? "#00ff88"
+                  : "#ff3b3b",
+          }}
         >
-          {isWin ? "WIN" : `${game.gameRank}위`}
+          {isFirst
+            ? "1위"
+            : isWin
+              ? "WIN"
+              : `${game.gameRank}위`}
         </span>
         <span style={{ color: "var(--text-secondary)", fontSize: "10px" }}>
           {formatDuration(game.duration)}
@@ -41,17 +103,29 @@ export default function GameHistoryRow({ game }: GameHistoryRowProps) {
         </span>
       </div>
 
-      {/* 캐릭터 */}
+      {/* 캐릭터 (character 테이블 nameKo + 기본 미니 이미지) */}
       <div className="shrink-0 flex flex-col items-center w-16">
         <div
-          className="w-10 h-10 rounded-lg flex items-center justify-center text-xs font-bold"
+          className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center text-xs font-bold shrink-0"
           style={{ backgroundColor: "var(--bg-secondary)", color: "var(--neon-cyan)" }}
         >
-          {game.characterNum}
+          {miniSrc ? (
+            <Image
+              src={miniSrc}
+              alt={charName}
+              width={40}
+              height={40}
+              className="object-cover w-full h-full"
+              unoptimized
+            />
+          ) : (
+            game.characterNum
+          )}
         </div>
         <span
           className="text-xs mt-0.5 truncate w-16 text-center"
           style={{ color: "var(--text-secondary)" }}
+          title={charName}
         >
           {charName}
         </span>

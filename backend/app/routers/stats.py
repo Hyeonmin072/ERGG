@@ -4,8 +4,16 @@ from collections import defaultdict
 from fastapi import APIRouter, HTTPException, Query
 
 from ..clients.supabase_client import get_supabase_client
+from ..core.config import settings
+from ..data.weapon_type_ko import (
+    load_best_weapon_code_to_ko,
+    resolve_weapon_display_name_for_stats,
+)
 
 router = APIRouter()
+
+# Eternal Return API characterNum (027.Alex). DB에서 이름 매칭 실패 시 폴백.
+ALEX_CHARACTER_NUM_FALLBACK = 27
 
 
 def _to_num(v: object, default: float = 0.0) -> float:
@@ -24,6 +32,14 @@ def _to_int(v: object, default: int = 0) -> int:
         return int(v)
     except (TypeError, ValueError):
         return default
+
+
+def _row_get(row: dict, *keys: str, default: object | None = None) -> object | None:
+    """Supabase 컬럼이 snake_case(레거시 DB) 또는 camelCase(schema.sql)일 때 모두 대응."""
+    for k in keys:
+        if k in row and row[k] is not None:
+            return row[k]
+    return default
 
 
 def _fetch_all_rows(table: str, columns: str, batch_size: int = 1000) -> list[dict]:
@@ -56,6 +72,19 @@ def _percentile_scores(values: list[float]) -> list[float]:
     return [(idx_map[v] / denom) * 100.0 for v in values]
 
 
+def _resolve_alex_character_num(chars: list[dict]) -> int | None:
+    """알렉스 characterNum (무기 통합 표시용). DB에 없으면 None."""
+    for c in chars:
+        num = _to_int(_row_get(c, "characterNum", "character_num"), -1)
+        if num < 0:
+            continue
+        nko = str(_row_get(c, "nameKo", "name_ko") or "").strip()
+        nen = str(c.get("name") or "").strip().lower()
+        if nko == "알렉스" or nen == "alex":
+            return num
+    return None
+
+
 def _tier_grade(score: float) -> str:
     if score >= 90:
         return "S+"
@@ -71,35 +100,56 @@ def _tier_grade(score: float) -> str:
 
 
 @router.get("/characters")
-async def get_character_stats(min_games: int = Query(10, ge=1, le=10000), limit: int = Query(100, ge=1, le=300)):
+async def get_character_stats(
+    minGames: int = Query(10, ge=1, le=10000),
+    limit: int = Query(100, ge=1, le=300),
+):
     """
     캐릭터 통계:
-    - 평균 데미지(=damage_to_player)
-    - 평균 동물 딜량(damage_to_monster)
+    - 평균 데미지(=damageToPlayer)
+    - 평균 동물 딜량(damageToMonster)
     - 픽률/승률/top3/평균순위
     - 평균 RP 획득량(mmr_gain), 평균 TK(team_kill), 평균 킬(player_kill)
     """
     try:
+        # 실제 Supabase/Postgres 컬럼명(snake_case). schema.sql camelCase 마이그레이션 전 DB 호환.
         games_rows = _fetch_all_rows("games", "game_id,matching_mode,matching_team_mode")
         ranked_squad_game_ids = {
-            _to_int(g.get("game_id"))
+            _to_int(_row_get(g, "gameId", "game_id"))
             for g in games_rows
-            if _to_int(g.get("matching_mode")) == 3 and _to_int(g.get("matching_team_mode")) == 3
+            if _to_int(_row_get(g, "matchingMode", "matching_mode")) == 3
+            and _to_int(_row_get(g, "matchingTeamMode", "matching_team_mode")) == 3
         }
         rows = _fetch_all_rows(
             "game_details",
-            "game_id,character_num,game_rank,victory,damage_to_player,damage_to_monster,mmr_gain,team_kill,player_kill",
+            "game_id,character_num,best_weapon,game_rank,victory,"
+            "damage_to_player,damage_to_monster,mmr_gain,team_kill,player_kill",
         )
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"games/game_details 조회 실패: {e}")
 
-    rows = [r for r in rows if _to_int(r.get("game_id")) in ranked_squad_game_ids]
+    weapon_name_map = load_best_weapon_code_to_ko(settings.er_api_base_url, settings.er_api_key)
+
+    rows = [
+        r for r in rows if _to_int(_row_get(r, "gameId", "game_id")) in ranked_squad_game_ids
+    ]
 
     if not rows:
-        return {"total_games": 0, "count": 0, "items": []}
+        return {"totalGames": 0, "count": 0, "items": []}
+
+    char_rows: list[dict] = []
+    try:
+        char_rows = _fetch_all_rows("character", "name,name_ko,character_num")
+    except Exception:
+        pass
+    alex_num = _resolve_alex_character_num(char_rows)
+    if alex_num is None:
+        alex_num = ALEX_CHARACTER_NUM_FALLBACK
+    # 알렉스는 유일하게 복수 무기 타입을 쓰는 실험체 → 무기 구분 없이 하나의 행으로 집계
+    ALEX_MERGED_WEAPON_KEY = 0
 
     totals = len(rows)
-    agg: dict[int, dict[str, float]] = defaultdict(
+    agg: dict[tuple[int, int], dict[str, float]] = defaultdict(
         lambda: {
             "games": 0,
             "wins": 0,
@@ -113,94 +163,138 @@ async def get_character_stats(min_games: int = Query(10, ge=1, le=10000), limit:
         }
     )
 
-    for r in rows:
-        c = _to_int(r.get("character_num"), -1)
-        if c < 0:
-            continue
-        a = agg[c]
-        a["games"] += 1
-        a["wins"] += 1 if _to_int(r.get("victory")) == 1 else 0
-        a["top3"] += 1 if _to_int(r.get("game_rank"), 999) <= 3 else 0
-        a["sum_rank"] += _to_num(r.get("game_rank"))
-        a["sum_damage_to_player"] += _to_num(r.get("damage_to_player"))
-        a["sum_damage_to_monster"] += _to_num(r.get("damage_to_monster"))
-        a["sum_mmr_gain"] += _to_num(r.get("mmr_gain"))
-        a["sum_team_kill"] += _to_num(r.get("team_kill"))
-        a["sum_player_kill"] += _to_num(r.get("player_kill"))
+    # 캐릭터 내 무기 픽률 계산용 분모
+    char_totals: dict[int, int] = defaultdict(int)
 
-    # character 테이블 데이터(있는 것만) 이름 매핑
+    for r in rows:
+        c = _to_int(_row_get(r, "characterNum", "character_num"), -1)
+        w = _to_int(_row_get(r, "bestWeapon", "best_weapon"), -1)
+        if c < 0 or w < 0:
+            continue
+        if c == alex_num:
+            w = ALEX_MERGED_WEAPON_KEY
+        key = (c, w)
+        a = agg[key]
+        a["games"] += 1
+        char_totals[c] += 1
+        a["wins"] += 1 if _to_int(r.get("victory")) == 1 else 0
+        a["top3"] += 1 if _to_int(_row_get(r, "gameRank", "game_rank"), 999) <= 3 else 0
+        a["sum_rank"] += _to_num(_row_get(r, "gameRank", "game_rank"))
+        a["sum_damage_to_player"] += _to_num(_row_get(r, "damageToPlayer", "damage_to_player"))
+        a["sum_damage_to_monster"] += _to_num(_row_get(r, "damageToMonster", "damage_to_monster"))
+        a["sum_mmr_gain"] += _to_num(_row_get(r, "mmrGain", "mmr_gain"))
+        a["sum_team_kill"] += _to_num(_row_get(r, "teamKill", "team_kill"))
+        a["sum_player_kill"] += _to_num(_row_get(r, "playerKill", "player_kill"))
+
+    # character 테이블: character_num ↔ 표시명 (name_ko 우선, 없으면 name)
     char_name_map: dict[int, str] = {}
-    try:
-        chars = _fetch_all_rows('character', 'name,"characterNum"')
-        for c in chars:
-            num = _to_int(c.get("characterNum"), -1)
-            if num >= 0:
-                char_name_map[num] = str(c.get("name") or "")
-    except Exception:
-        # character 테이블 없거나 컬럼명이 다르면 이름 없이 반환
-        pass
+    for c in char_rows:
+        num = _to_int(_row_get(c, "characterNum", "character_num"), -1)
+        if num < 0:
+            continue
+        ko = str(_row_get(c, "nameKo", "name_ko") or "").strip()
+        fallback = str(c.get("name") or "").strip()
+        char_name_map[num] = ko if ko else fallback
+
+    # 글로벌 평균 (베이지안 보정)
+    global_win = (sum(1 for r in rows if _to_int(r.get("victory")) == 1) / totals) * 100.0
+    global_top3 = (
+        sum(1 for r in rows if _to_int(_row_get(r, "gameRank", "game_rank"), 999) <= 3) / totals
+    ) * 100.0
+    k = 70.0
 
     raw_items: list[dict] = []
-    for character_num, a in agg.items():
+    for (character_num, weapon_id), a in agg.items():
         games = int(a["games"])
-        if games < min_games:
+        if games < minGames:
             continue
         avg_rank = a["sum_rank"] / games
+        win_rate = (a["wins"] / games) * 100
+        top3_rate = (a["top3"] / games) * 100
+        pick_rate_pct = (games / totals) * 100
+        if character_num == alex_num:
+            weapon_pick_rate_in_character = 100.0
+        else:
+            weapon_pick_rate_in_character = (games / max(char_totals.get(character_num, 1), 1)) * 100
+
+        adj_win = (games / (games + k)) * win_rate + (k / (games + k)) * global_win
+        adj_top3 = (games / (games + k)) * top3_rate + (k / (games + k)) * global_top3
+        pick_penalty = min(5.0, max(0.0, (1.0 - pick_rate_pct) * 5.0))
+
         raw_items.append(
             {
-                "character_num": character_num,
-                "character_name": char_name_map.get(character_num),
+                "characterNum": character_num,
+                "weaponId": weapon_id,
+                "weaponName": (
+                    "복합 무기"
+                    if character_num == alex_num and weapon_id == ALEX_MERGED_WEAPON_KEY
+                    else resolve_weapon_display_name_for_stats(
+                        character_num, weapon_id, weapon_name_map
+                    )
+                ),
+                "characterName": char_name_map.get(character_num),
                 "games": games,
-                "pick_rate_pct": (games / totals) * 100,
-                "win_rate_pct": (a["wins"] / games) * 100,
-                "top3_rate_pct": (a["top3"] / games) * 100,
-                "avg_rank": avg_rank,
-                "avg_damage": a["sum_damage_to_player"] / games,
-                "avg_damage_to_monster": a["sum_damage_to_monster"] / games,
-                "avg_rp_gain": a["sum_mmr_gain"] / games,
-                "avg_tk": a["sum_team_kill"] / games,
-                "avg_kill": a["sum_player_kill"] / games,
-                "rank_score": max(0.0, min(100.0, (1.0 - ((avg_rank - 1.0) / 23.0)) * 100.0)),
+                "pickRatePct": pick_rate_pct,
+                "weaponPickRateInCharacterPct": weapon_pick_rate_in_character,
+                "winRatePct": win_rate,
+                "top3RatePct": top3_rate,
+                "adjWinRatePct": adj_win,
+                "adjTop3RatePct": adj_top3,
+                "avgRank": avg_rank,
+                "avgDamage": a["sum_damage_to_player"] / games,
+                "avgDamageToMonster": a["sum_damage_to_monster"] / games,
+                "avgRpGain": a["sum_mmr_gain"] / games,
+                "avgTk": a["sum_team_kill"] / games,
+                "avgKill": a["sum_player_kill"] / games,
+                "pickPenalty": pick_penalty,
+                "rankScore": max(0.0, min(100.0, (1.0 - ((avg_rank - 1.0) / 23.0)) * 100.0)),
             }
         )
 
     if not raw_items:
-        return {"total_games": totals, "count": 0, "items": []}
+        return {"totalGames": totals, "count": 0, "items": []}
 
-    damage_scores = _percentile_scores([r["avg_damage"] for r in raw_items])
-    rp_scores = _percentile_scores([r["avg_rp_gain"] for r in raw_items])
+    damage_scores = _percentile_scores([r["avgDamage"] for r in raw_items])
+    rp_scores = _percentile_scores([r["avgRpGain"] for r in raw_items])
 
     items = []
     for i, r in enumerate(raw_items):
-        tier_score = (
-            0.30 * r["win_rate_pct"]
-            + 0.25 * r["top3_rate_pct"]
-            + 0.25 * r["rank_score"]
+        tier_score_val = (
+            0.30 * r["adjWinRatePct"]
+            + 0.25 * r["adjTop3RatePct"]
+            + 0.25 * r["rankScore"]
             + 0.15 * damage_scores[i]
             + 0.05 * rp_scores[i]
         )
+        tier_score_val = max(0.0, min(100.0, tier_score_val - r["pickPenalty"]))
         items.append(
             {
-                "character_num": r["character_num"],
-                "character_name": r["character_name"],
+                "characterNum": r["characterNum"],
+                "weaponId": r["weaponId"],
+                "weaponName": r["weaponName"],
+                "characterName": r["characterName"],
                 "games": r["games"],
-                "pick_rate_pct": round(r["pick_rate_pct"], 2),
-                "win_rate_pct": round(r["win_rate_pct"], 2),
-                "top3_rate_pct": round(r["top3_rate_pct"], 2),
-                "avg_rank": round(r["avg_rank"], 2),
-                "avg_damage": round(r["avg_damage"], 2),
-                "avg_damage_to_monster": round(r["avg_damage_to_monster"], 2),
-                "avg_rp_gain": round(r["avg_rp_gain"], 2),
-                "avg_tk": round(r["avg_tk"], 2),
-                "avg_kill": round(r["avg_kill"], 2),
-                "tier_score": round(tier_score, 2),
-                "tier_grade": _tier_grade(tier_score),
+                "pickRatePct": round(r["pickRatePct"], 2),
+                "weaponPickRateInCharacterPct": round(r["weaponPickRateInCharacterPct"], 2),
+                "winRatePct": round(r["winRatePct"], 2),
+                "top3RatePct": round(r["top3RatePct"], 2),
+                "adjWinRatePct": round(r["adjWinRatePct"], 2),
+                "adjTop3RatePct": round(r["adjTop3RatePct"], 2),
+                "avgRank": round(r["avgRank"], 2),
+                "avgDamage": round(r["avgDamage"], 2),
+                "avgDamageToMonster": round(r["avgDamageToMonster"], 2),
+                "avgRpGain": round(r["avgRpGain"], 2),
+                "avgTk": round(r["avgTk"], 2),
+                "avgKill": round(r["avgKill"], 2),
+                "pickPenalty": round(r["pickPenalty"], 2),
+                "tierScore": round(tier_score_val, 2),
+                "tierGrade": _tier_grade(tier_score_val),
             }
         )
 
-    items.sort(key=lambda x: (x["tier_score"], x["games"]), reverse=True)
+    items.sort(key=lambda x: (x["tierScore"], x["games"]), reverse=True)
     return {
-        "total_games": totals,
+        "totalGames": totals,
         "count": min(len(items), limit),
         "items": items[:limit],
     }

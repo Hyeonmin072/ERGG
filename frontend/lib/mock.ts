@@ -1,63 +1,34 @@
 // ============================================================
 // ERGG 헬퍼 함수 + 목 데이터
 // ============================================================
-import type { PlayerProfile, UserGame, MetaBriefing } from "./types";
+import type { PlayerProfile, UserGame, MetaBriefing, OctagonScore } from "./types";
+import { COMBO_ROSTER_NAMES } from "./comboRoster";
 
-// ── 캐릭터 이름 매핑 ─────────────────────────────────────────
+// ── 캐릭터 이름 매핑 (BSER/ER userGames.characterNum = 조합 로스터 순서 1..N) ──
 
-export const CHARACTER_NAMES: Record<number, string> = {
-  1: "재키", 2: "핀", 3: "야", 4: "재클린", 5: "나딘", 6: "아이솔", 7: "노아",
-  8: "하비", 9: "레나", 10: "에이든", 11: "쿠인시", 12: "현우", 13: "나쟈",
-  14: "에마", 15: "시어도어", 16: "로지", 17: "레온", 18: "시즈카", 19: "피오라",
-  20: "나타", 21: "누나리", 22: "다니엘라", 23: "제이", 24: "이반", 25: "마스",
-  26: "티아나", 27: "요릭", 28: "시린", 29: "에카테리나", 30: "실리아",
-  31: "리오", 32: "기예르모", 33: "카밀로", 34: "루크", 35: "엘레나",
-  36: "유키", 37: "아키", 38: "클로에", 39: "살바토르", 40: "쿠이라",
-  41: "포포", 42: "스타시아", 43: "조수아", 44: "아델라", 45: "다이애나",
-  46: "라피나", 47: "발트", 48: "스웨인", 49: "에르네스토", 50: "에이다",
-  51: "안나", 52: "미란다", 53: "다니아", 54: "마야", 55: "파티마",
-  56: "브라이어", 57: "바이올렛", 58: "니콜라이", 59: "니키", 60: "엘지",
-  61: "수지", 62: "이안", 63: "이자벨", 64: "루비", 65: "마르티나",
-  66: "윌리엄", 67: "클로드", 68: "마리아", 69: "루미", 70: "가브리엘",
-  71: "유진", 72: "에릭", 73: "줄리아", 74: "이리나", 75: "알렉스",
-  76: "잔느", 77: "벤자민", 78: "아키하바라", 79: "타마라",
+const _characterNames: Record<number, string> = {};
+COMBO_ROSTER_NAMES.forEach((name, i) => {
+  _characterNames[i + 1] = name;
+});
+export const CHARACTER_NAMES: Record<number, string> = _characterNames;
+
+// ── 티어 유틸 (RP·디비전 구간은 lib/tier.ts) ─────────────────
+import {
+  getTierFromRP,
+  getTierColorFromRP,
+  getTierImageFromRP,
+  getTierColor,
+  getTierImage,
+} from "./tier";
+import { computeOctagonFromUserGames } from "./octagonFromGames";
+
+export {
+  getTierFromRP,
+  getTierColorFromRP,
+  getTierImageFromRP,
+  getTierColor,
+  getTierImage,
 };
-
-// ── 티어 유틸 ─────────────────────────────────────────────────
-
-export function getTierFromRP(rp: number): string {
-  if (rp >= 6400) return "타이탄";
-  if (rp >= 5800) return "이모탈";
-  if (rp >= 5200) return "다이아";
-  if (rp >= 4600) return "플래티넘";
-  if (rp >= 4000) return "골드";
-  if (rp >= 3400) return "실버";
-  if (rp >= 2800) return "브론즈";
-  return "아이언";
-}
-
-export function getTierColor(tier: string): string {
-  const map: Record<string, string> = {
-    "타이탄": "#ffd700", "이모탈": "#e040fb", "다이아": "#00d4ff",
-    "플래티넘": "#40c4ff", "골드": "#ffa726", "실버": "#b0bec5",
-    "브론즈": "#a0785a", "아이언": "#78909c",
-  };
-  return map[tier] ?? "#94a3b8";
-}
-
-export function getTierImage(tier: string): string {
-  const map: Record<string, string> = {
-    "타이탄":   "/images/tier/09.%20Titan.png",
-    "이모탈":   "/images/tier/10.%20Immortal.png",
-    "다이아":   "/images/tier/06.%20Diamond.png",
-    "플래티넘": "/images/tier/05.%20Platinum.png",
-    "골드":     "/images/tier/04.%20Gold.png",
-    "실버":     "/images/tier/03.%20Silver.png",
-    "브론즈":   "/images/tier/02.%20Bronze.png",
-    "아이언":   "/images/tier/01.%20Iron.png",
-  };
-  return map[tier] ?? "/images/tier/00.%20Unrank.png";
-}
 
 export function getGradeColor(grade: string): string {
   const map: Record<string, string> = {
@@ -120,7 +91,7 @@ export function getTeamModeLabel(teamMode: number): string {
 // ── 목 데이터 ─────────────────────────────────────────────────
 
 const BASE_GAME: UserGame = {
-  userNum: 4095353, nickname: "김현민", seasonId: 33,
+  nickname: "김현민", seasonId: 33,
   matchingMode: 3, matchingTeamMode: 3, accountLevel: 139,
   serverName: "Global", language: "Korean", versionMajor: 3, versionMinor: 0,
   // 게임별로 오버라이드되는 기본값
@@ -264,20 +235,29 @@ export const MOCK_GAMES: UserGame[] = [
 
 const mockStats = calcProfileStats(MOCK_GAMES);
 
+const MOCK_OCTAGON: OctagonScore =
+  computeOctagonFromUserGames(MOCK_GAMES, { userId: "mock-user-id", matchingMode: 3 }) ?? {
+    userId: "mock-user-id",
+    seasonId: 33,
+    matchingMode: 3,
+    engagement: 0,
+    hunting: 0,
+    vision: 0,
+    survival: 0,
+    sustain: 0,
+    centerGrade: "C",
+    gamesAnalyzed: 0,
+  };
+
 export const MOCK_PLAYER: PlayerProfile = {
-  userNum: 4095353,
+  userId: "mock-user-id",
   nickname: "김현민",
   accountLevel: 139,
   rankPoint: 4960,
-  tier: "플래티넘",
+  tier: getTierFromRP(4960),
   lastSyncAt: "2026-03-24T10:00:00",
   stats: null,
-  octagon: {
-    userNum: 4095353, seasonId: 33, matchingMode: 3,
-    combat: 72, takedown: 58, hunting: 80,
-    vision: 35, mastery: 68, survival: 52,
-    centerGrade: "A", gamesAnalyzed: 20,
-  },
+  octagon: MOCK_OCTAGON,
   recentGames: MOCK_GAMES,
   ...mockStats,
 };

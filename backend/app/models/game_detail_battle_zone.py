@@ -10,21 +10,24 @@ class GameDetailBattleZone(Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     game_detail_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("game_details.id", ondelete="CASCADE"), nullable=False, index=True
+        "gameDetailId",
+        BigInteger,
+        ForeignKey("game_details.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
-    zone_number: Mapped[int] = mapped_column(SmallInteger, nullable=False)  # 1, 2, 3
+    zone_number: Mapped[int] = mapped_column("zoneNumber", SmallInteger, nullable=False)
 
-    area_code: Mapped[int] = mapped_column(Integer, default=0)
-    battle_mark: Mapped[int] = mapped_column(Integer, default=0)
-    battle_mark_count: Mapped[int] = mapped_column(Integer, default=0)
+    area_code: Mapped[int] = mapped_column("areaCode", Integer, default=0)
+    battle_mark: Mapped[int] = mapped_column("battleMark", Integer, default=0)
+    battle_mark_count: Mapped[int] = mapped_column("battleMarkCount", Integer, default=0)
     winner: Mapped[int] = mapped_column(SmallInteger, default=0)
-    item_codes: Mapped[list] = mapped_column(JSONB, default=list)  # 배틀존 아이템 코드 배열
+    item_codes: Mapped[list] = mapped_column("itemCodes", JSONB, default=list)
 
     __table_args__ = (
-        UniqueConstraint("game_detail_id", "zone_number", name="uq_battle_zone"),
+        UniqueConstraint("gameDetailId", "zoneNumber", name="uq_battle_zone"),
     )
 
-    # Relationship
     game_detail: Mapped["GameDetail"] = relationship(  # noqa: F821
         "GameDetail", back_populates="battle_zones"
     )

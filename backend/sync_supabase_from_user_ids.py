@@ -53,7 +53,7 @@ async def main() -> None:
             total_users_ok += 1
             print(
                 f"[{idx}/{len(user_ids)}] OK userId={user_id} "
-                f"userNum={res.get('user_num')} saved={saved}"
+                f"saved={saved}"
             )
         except Exception as e:  # noqa: BLE001
             total_users_fail += 1

@@ -1,5 +1,5 @@
 import type { PlayerStats, UserGame } from "./types";
-import { CHARACTER_NAMES } from "./mock";
+import { resolveCharacterDisplayName, type CharacterCatalogMap } from "./characterDisplay";
 
 export interface CombatRollups {
   avgDamage: number;
@@ -36,7 +36,11 @@ export interface CharacterUsageRow {
 }
 
 /** 최근 전적에서 픽 분포 */
-export function characterUsageFromGames(games: UserGame[], top = 8): CharacterUsageRow[] {
+export function characterUsageFromGames(
+  games: UserGame[],
+  top = 8,
+  catalog?: CharacterCatalogMap | null
+): CharacterUsageRow[] {
   const map = new Map<number, number>();
   for (const g of games) {
     map.set(g.characterNum, (map.get(g.characterNum) ?? 0) + 1);
@@ -46,7 +50,7 @@ export function characterUsageFromGames(games: UserGame[], top = 8): CharacterUs
     .map(([characterNum, count]) => ({
       characterNum,
       count,
-      name: CHARACTER_NAMES[characterNum] ?? `#${characterNum}`,
+      name: resolveCharacterDisplayName(characterNum, catalog),
       pct: Math.round((count / total) * 1000) / 10,
     }))
     .sort((a, b) => b.count - a.count)
@@ -60,7 +64,7 @@ export function characterUsageFromStats(stats: PlayerStats | null, top = 8): Cha
   const total = list.reduce((s, c) => s + c.usages, 0) || 1;
   return list.map((c) => ({
     characterNum: c.characterNum,
-    name: CHARACTER_NAMES[c.characterNum] ?? `#${c.characterNum}`,
+    name: resolveCharacterDisplayName(c.characterNum, null),
     count: c.usages,
     pct: Math.round((c.usages / total) * 1000) / 10,
   }));
@@ -78,7 +82,11 @@ export interface RecentGameMetric {
   characterName: string;
 }
 
-export function recentGamesMetrics(games: UserGame[], limit = 12): RecentGameMetric[] {
+export function recentGamesMetrics(
+  games: UserGame[],
+  limit = 12,
+  catalog?: CharacterCatalogMap | null
+): RecentGameMetric[] {
   return games.slice(0, limit).map((g) => ({
     gameId: g.gameId,
     rank: g.gameRank,
@@ -88,6 +96,6 @@ export function recentGamesMetrics(games: UserGame[], limit = 12): RecentGameMet
     assists: g.playerAssistant,
     victory: g.victory === 1 || g.gameRank === 1,
     characterNum: g.characterNum,
-    characterName: CHARACTER_NAMES[g.characterNum] ?? `#${g.characterNum}`,
+    characterName: resolveCharacterDisplayName(g.characterNum, catalog),
   }));
 }

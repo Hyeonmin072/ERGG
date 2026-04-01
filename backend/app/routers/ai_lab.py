@@ -11,18 +11,21 @@ router = APIRouter()
 # ── 나쟈의 독설 ───────────────────────────────────────────────────────────────
 
 class CoachRequest(BaseModel):
-    user_num: int
-    game_count: int = 20
-    season_id: int = 33
+    userId: str
+    gameCount: int = 20
+    seasonId: int = 33
     mode: int = 3
 
 
 @router.post("/coach")
 async def ai_coach(req: CoachRequest):
     """패배 로그 분석 → AI 코칭 피드백."""
+    uid = req.userId.strip()
+    if not uid:
+        raise HTTPException(status_code=400, detail="userId가 필요합니다.")
     client = get_er_client()
     try:
-        data = await client.get_user_games(req.user_num)
+        data = await client.get_user_games_by_user_id(uid)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"ER API 오류: {e}")
 
@@ -30,7 +33,7 @@ async def ai_coach(req: CoachRequest):
         raise HTTPException(status_code=404, detail="게임 데이터를 찾을 수 없습니다.")
 
     games = [g for g in data.get("userGames", []) if g.get("matchingMode") == req.mode]
-    recent = games[:req.game_count]
+    recent = games[:req.gameCount]
 
     if not recent:
         raise HTTPException(status_code=404, detail="분석할 게임이 없습니다.")
@@ -67,7 +70,7 @@ async def ai_coach(req: CoachRequest):
     deaths = [g.get("causeOfDeath", "") for g in recent if g.get("causeOfDeath")]
     scores["top_cause_of_death"] = deaths[0] if deaths else "알 수 없음"
 
-    nickname = recent[0].get("nickname", f"#{req.user_num}")
+    nickname = recent[0].get("nickname", uid[:12])
     prompt = build_coach_prompt(nickname, scores)
 
     try:

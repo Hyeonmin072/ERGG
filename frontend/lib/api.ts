@@ -1,21 +1,38 @@
 // ============================================================
-// ERGG API 클라이언트
-// FastAPI 백엔드 (http://localhost:8000) 호출
+// ERGG API 클라이언트 — 브라우저 → 이 저장소의 FastAPI 백엔드만 호출합니다.
+//
+// 이터널리턴 Open API(https://open-api.bser.io)는 백엔드가 서버에서 호출합니다.
+// (ER_API_KEY는 브라우저에 노출되면 안 되므로 프론트에서 ER 직통 요청을 하지 않습니다.)
 // ============================================================
 import type {
   PlayerSearchResult,
-  PlayerStats,
   PlayerGamesResponse,
   OctagonScore,
   CharacterStatsResponse,
+  CharacterCatalogResponse,
 } from "./types";
 
 function normalizeBaseUrl(raw?: string): string {
-  const fallback = "http://localhost:8000/api/v1";
+  const fallback = "/api-ergg/api/v1";
   if (!raw) return fallback;
   const trimmed = raw.replace(/\/+$/, "");
+  // 상대 경로(프록시): /api-ergg → /api-ergg/api/v1
+  if (trimmed.startsWith("/")) {
+    if (trimmed.endsWith("/api/v1")) return trimmed;
+    if (trimmed.endsWith("/api")) return `${trimmed}/v1`;
+    return `${trimmed}/api/v1`;
+  }
   if (trimmed.endsWith("/api/v1")) return trimmed;
   if (trimmed.endsWith("/api")) return `${trimmed}/v1`;
+  try {
+    const withProto = trimmed.includes("://") ? trimmed : `http://${trimmed}`;
+    const u = new URL(withProto);
+    if (u.pathname === "/" || u.pathname === "") {
+      return `${u.origin}/api/v1`;
+    }
+  } catch {
+    /* keep trimmed */
+  }
   return trimmed;
 }
 
@@ -63,74 +80,82 @@ export async function searchPlayer(
 }
 
 /**
- * 플레이어 랭크 스탯 조회
- * GET /api/players/{userNum}?season_id={seasonId}&mode={mode}
+ * userId(닉네임 검색 userId) 기준 전적.
+ * 백엔드가 ER: GET /v1/user/games/uid/{userId} → next 있으면 ?next= 로 2페이지까지 합침(기본).
+ * GET /api/v1/players/games/by-user-id?userId=&maxPages= | &cursor=
  */
-export async function getPlayerStats(
-  userNum: number,
-  seasonId = 33,
-  mode = 3
-): Promise<PlayerStats> {
-  return apiFetch<PlayerStats>(
-    `/players/${userNum}?season_id=${seasonId}&mode=${mode}`
-  );
-}
-
-/**
- * 플레이어 게임 목록 조회 (커서 페이지네이션)
- * GET /api/players/{userNum}/games?cursor={cursor}
- */
-export async function getPlayerGames(
-  userNum: number,
-  cursor?: string
+export async function getPlayerGamesByUserId(
+  userId: string,
+  cursor?: string,
+  /** cursor 없을 때 합칠 ER 페이지 수(1≈10판). 기본 2 → 최대 ~20판 */
+  maxPages = 2
 ): Promise<PlayerGamesResponse> {
-  const qs = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
-  return apiFetch<PlayerGamesResponse>(`/players/${userNum}/games${qs}`);
+  const sp = new URLSearchParams({ userId });
+  if (cursor) {
+    sp.set("cursor", cursor);
+  } else {
+    sp.set("maxPages", String(maxPages));
+  }
+  return apiFetch<PlayerGamesResponse>(`/players/games/by-user-id?${sp.toString()}`);
 }
 
 /**
- * 플레이어 캐시 갱신 요청
- * POST /api/players/{userNum}/refresh
+ * 플레이어·옥타곤 캐시 갱신 (userId)
+ * POST /api/v1/players/refresh/by-user-id?userId=
  */
-export async function refreshPlayer(
-  userNum: number
+export async function refreshPlayerByUserId(
+  userId: string
 ): Promise<{ message: string }> {
-  return apiFetch<{ message: string }>(`/players/${userNum}/refresh`, {
+  const sp = new URLSearchParams({ userId });
+  return apiFetch<{ message: string }>(`/players/refresh/by-user-id?${sp.toString()}`, {
     method: "POST",
   });
+}
+
+
+// ── 캐릭터 마스터 (Supabase character 테이블) ─────────────────
+
+/**
+ * GET /api/v1/catalog/characters
+ */
+export async function getCharacterCatalog(): Promise<CharacterCatalogResponse> {
+  return apiFetch<CharacterCatalogResponse>("/catalog/characters");
 }
 
 
 // ── 옥타곤 API ───────────────────────────────────────────────
 
 /**
- * 플레이어 옥타곤 지표 조회
- * GET /api/octagon/{userNum}?season_id={seasonId}&mode={mode}
+ * 플레이어 옥타곤 지표 조회 (userId)
+ * GET /api/v1/octagon/by-user-id?userId=&seasonId=&mode=
  */
-export async function getOctagonScore(
-  userNum: number,
+export async function getOctagonScoreByUserId(
+  userId: string,
   seasonId = 33,
   mode = 3
 ): Promise<OctagonScore> {
-  return apiFetch<OctagonScore>(
-    `/octagon/${userNum}?season_id=${seasonId}&mode=${mode}`
-  );
+  const sp = new URLSearchParams({
+    userId,
+    seasonId: String(seasonId),
+    mode: String(mode),
+  });
+  return apiFetch<OctagonScore>(`/octagon/by-user-id?${sp.toString()}`);
 }
 
 
 // ── AI Lab API ───────────────────────────────────────────────
 
 export interface CoachRequest {
-  user_num: number;
-  game_count?: number;
-  season_id?: number;
+  userId: string;
+  gameCount?: number;
+  seasonId?: number;
   mode?: number;
 }
 
 export interface CoachResponse {
+  nickname: string;
+  gamesAnalyzed: number;
   feedback: string;
-  weakAxis: string;
-  scores: Record<string, number>;
 }
 
 /**
@@ -172,13 +197,13 @@ export async function getRouteRecommendation(prompt: string): Promise<{
 
 /**
  * 캐릭터 통계 조회
- * GET /api/stats/characters?min_games={minGames}&limit={limit}
+ * GET /api/stats/characters?minGames={minGames}&limit={limit}
  */
 export async function getCharacterStats(
   minGames = 10,
   limit = 100
 ): Promise<CharacterStatsResponse> {
   return apiFetch<CharacterStatsResponse>(
-    `/stats/characters?min_games=${minGames}&limit=${limit}`
+    `/stats/characters?minGames=${minGames}&limit=${limit}`
   );
 }

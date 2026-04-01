@@ -1,7 +1,7 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Zap, User, ChevronRight, AlertCircle } from "lucide-react";
-import { getAiCoach } from "@/lib/api";
+import { searchPlayer, getAiCoach } from "@/lib/api";
 
 const MOCK_FEEDBACK = `
 [최근 20게임 분석 결과 — 직접적으로 말하겠습니다]
@@ -34,10 +34,6 @@ export default function CoachPage() {
 
   const accent = useMemo(() => "rgba(255,255,255,0.92)", []);
 
-  useEffect(() => {
-    // Todo : 백엔드 연동 시 URL 쿼리(userNum)로 자동 분석 지원
-  }, []);
-
   const handleAnalyze = () => {
     if (!nickname.trim()) return;
     setLoading(true);
@@ -49,10 +45,14 @@ export default function CoachPage() {
           setFeedback(MOCK_FEEDBACK);
           return;
         }
-        // Todo : nickname → userNum 검색(searchPlayer) 후 getAiCoach 호출로 교체
-        // 현재 백엔드 스펙은 user_num 기반이라 임시 더미를 유지합니다.
-        await getAiCoach({ user_num: 0, game_count: gameCount });
-        setFeedback(MOCK_FEEDBACK);
+        const sr = await searchPlayer(nickname.trim());
+        const uid = sr.userId?.trim();
+        if (!uid) {
+          setFeedback("해당 닉네임의 userId를 찾을 수 없습니다.");
+          return;
+        }
+        const res = await getAiCoach({ userId: uid, gameCount });
+        setFeedback(res.feedback);
       } catch {
         setFeedback(MOCK_FEEDBACK);
       } finally {

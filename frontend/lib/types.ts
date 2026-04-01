@@ -25,8 +25,8 @@ export interface BattleZoneInfo {
 }
 
 export interface UserGame {
-  // ── 플레이어 기본
-  userNum: number;
+  // ── 플레이어 기본 (ER JSON에 없을 수 있음)
+  userNum?: number;
   nickname: string;
   gameId: number;
   seasonId: number;
@@ -186,6 +186,10 @@ export interface UserGame {
   // ── 전술 스킬
   tacticalSkillGroup: number;
   tacticalSkillLevel: number;
+  /** ER 일부 응답 — 옥타곤 결투축 산출에 사용 */
+  tacticalSkillUseCount?: number;
+  /** ER 일부 응답 — 옥타곤 시야축 산출에 사용 */
+  viewContribution?: number;
 
   // ── 치료팩 / 실드팩
   usedNormalHealPack: number;
@@ -314,15 +318,15 @@ export interface UserGame {
 
 // ── 백엔드 API 응답 타입 ────────────────────────────────────────
 
-/** /api/players/search */
+/** /api/v1/players/search — ER user 객체 정규화 */
 export interface PlayerSearchResult {
-  userNum: number;
   nickname: string;
+  /** 닉네임 검색 응답의 userId — /v1/user/games/uid/{userId} 에 사용 */
+  userId?: string | null;
 }
 
-/** /api/players/{userNum}  (ER API userStats 단건) */
+/** 시즌 누적 캐릭터 스탯 (별도 API 없을 때는 null) */
 export interface PlayerStats {
-  userNum: number;
   nickname: string;
   seasonId: number;
   matchingMode: number;
@@ -349,23 +353,24 @@ export interface CharacterStat {
   averageRank: number;
 }
 
-/** /api/players/{userNum}/games */
+/** /api/players/games/by-user-id */
 export interface PlayerGamesResponse {
   games: UserGame[];
   next: string | null;   // cursor for next page
 }
 
-/** /api/octagon/{userNum} */
+/** /api/octagon/by-user-id */
 export interface OctagonScore {
-  userNum: number;
+  userId: string;
   seasonId: number;
   matchingMode: number;
-  combat: number;
-  takedown: number;
+  /** 전투·결투 통합 (DPM·킬·스킬비중 + 킬관여·어시·전술·CC) */
+  engagement: number;
   hunting: number;
   vision: number;
-  mastery: number;
   survival: number;
+  /** 회복·보호막·팀 회복 */
+  sustain: number;
   centerGrade: string;
   gamesAnalyzed: number;
 }
@@ -375,7 +380,7 @@ export interface OctagonScore {
 
 /** 플레이어 프로필 페이지용 통합 타입 */
 export interface PlayerProfile {
-  userNum: number;
+  userId: string | null;
   nickname: string;
   accountLevel: number;
   rankPoint: number;
@@ -410,26 +415,46 @@ export interface RouteRecommendation {
   reasoning: string;
 }
 
-/** /api/stats/characters */
+/** GET /api/v1/catalog/characters — Supabase character 테이블 */
+export interface CharacterCatalogItem {
+  characterNum: number;
+  name: string;
+  nameKo: string | null;
+  nameEn: string | null;
+  weaponType?: number | null;
+  weaponCode?: number | null;
+}
+
+export interface CharacterCatalogResponse {
+  items: CharacterCatalogItem[];
+}
+
+/** /api/v1/stats/characters — characterName은 Supabase character.nameKo 우선 */
 export interface CharacterStatsRow {
-  character_num: number;
-  character_name: string | null;
+  characterNum: number;
+  weaponId: number;
+  weaponName: string | null;
+  characterName: string | null;
   games: number;
-  tier_score: number;
-  tier_grade: string;
-  pick_rate_pct: number;
-  win_rate_pct: number;
-  top3_rate_pct: number;
-  avg_rank: number;
-  avg_damage: number;
-  avg_damage_to_monster: number;
-  avg_rp_gain: number;
-  avg_tk: number;
-  avg_kill: number;
+  tierScore: number;
+  tierGrade: string;
+  pickRatePct: number;
+  weaponPickRateInCharacterPct: number;
+  winRatePct: number;
+  top3RatePct: number;
+  adjWinRatePct: number;
+  adjTop3RatePct: number;
+  pickPenalty: number;
+  avgRank: number;
+  avgDamage: number;
+  avgDamageToMonster: number;
+  avgRpGain: number;
+  avgTk: number;
+  avgKill: number;
 }
 
 export interface CharacterStatsResponse {
-  total_games: number;
+  totalGames: number;
   count: number;
   items: CharacterStatsRow[];
 }
