@@ -106,7 +106,44 @@ export default function GameDetailModal({ game, onClose, catalog }: GameDetailMo
                         className="text-[11px] break-all whitespace-pre-wrap font-mono tabular-nums"
                         style={{ color: "var(--text-primary)" }}
                       >
-                        {row.value}
+                        {row.equipmentItems?.length ? (
+                          <div className="grid grid-cols-1 gap-2">
+                            {row.equipmentItems.map((item) => (
+                              <div
+                                key={`${item.slot}-${item.itemCode}`}
+                                className="flex items-center gap-2 rounded-md px-2 py-1.5"
+                                style={{ background: "rgba(255,255,255,0.04)" }}
+                              >
+                                <div
+                                  className="relative w-14 h-14 rounded overflow-hidden shrink-0"
+                                  style={{ background: "rgba(255,255,255,0.06)" }}
+                                >
+                                  {item.imagePath ? (
+                                    <img
+                                      src={encodeURI(item.imagePath)}
+                                      alt={item.name}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-[10px]">
+                                      ?
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="text-[11px] leading-tight font-semibold">
+                                    {item.slotLabel} · {item.name}
+                                  </div>
+                                  <div style={{ color: SUBTLE }} className="text-[10px]">
+                                    #{item.itemCode} · {item.armorType} · {item.itemGrade}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          row.value
+                        )}
                       </dd>
                     </div>
                   ))}

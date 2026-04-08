@@ -3,11 +3,101 @@ from __future__ import annotations
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 from ..clients.er_api_client import get_er_client
+from ..clients.supabase_client import get_supabase_client
 from ..core.config import settings
 from ..core.redis import cache_get, cache_set, cache_delete_pattern
 from ..services.supabase_sync_service import sync_user_games_by_user_id_to_supabase
 
 router = APIRouter()
+
+
+def _to_int(v: object) -> int | None:
+    try:
+        n = int(v)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+    return n if n > 0 else None
+
+
+def _build_equipment_images_for_games(games: list[dict]) -> None:
+    """
+    game dict에 equipmentImages 필드 주입:
+    - slots["0".."4"]: equipment 슬롯 코드 기반 매핑
+      - slot 0: type=weapon
+      - slot 1..4: type=armor
+    """
+    if not games:
+        return
+    try:
+        sb = get_supabase_client()
+    except Exception:
+        return
+
+    weapon_codes: set[int] = set()
+    armor_codes: set[int] = set()
+
+    for g in games:
+        eq = g.get("equipment")
+        if isinstance(eq, dict):
+            w = _to_int(eq.get("0"))
+            if w:
+                weapon_codes.add(w)
+            for slot in ("1", "2", "3", "4"):
+                c = _to_int(eq.get(slot))
+                if c:
+                    armor_codes.add(c)
+
+    weapon_map: dict[int, dict] = {}
+    armor_map: dict[int, dict] = {}
+    try:
+        if weapon_codes:
+            resp = (
+                sb.table("item")
+                .select("type,code,name_kr,name_en,image_path")
+                .eq("type", "weapon")
+                .in_("code", sorted(weapon_codes))
+                .execute()
+            )
+            for row in resp.data or []:
+                c = _to_int((row or {}).get("code"))
+                if c:
+                    weapon_map[c] = row
+        if armor_codes:
+            resp = (
+                sb.table("item")
+                .select("type,code,name_kr,name_en,image_path")
+                .eq("type", "armor")
+                .in_("code", sorted(armor_codes))
+                .execute()
+            )
+            for row in resp.data or []:
+                c = _to_int((row or {}).get("code"))
+                if c:
+                    armor_map[c] = row
+    except Exception:
+        return
+
+    for g in games:
+        out: dict[str, dict] = {"slots": {}}
+        eq = g.get("equipment")
+        if isinstance(eq, dict):
+            for slot in ("0", "1", "2", "3", "4"):
+                c = _to_int(eq.get(slot))
+                if not c:
+                    continue
+                if slot == "0":
+                    r = weapon_map.get(c)
+                else:
+                    r = armor_map.get(c)
+                if not r:
+                    continue
+                out["slots"][slot] = {
+                    "code": c,
+                    "nameKr": r.get("name_kr"),
+                    "nameEn": r.get("name_en"),
+                    "imagePath": r.get("image_path"),
+                }
+        g["equipmentImages"] = out
 
 
 @router.get("/search")
@@ -20,6 +110,9 @@ async def search_player(nickname: str):
     try:
         cached = await cache_get(cache_key)
         if cached:
+            games_cached = cached.get("games") if isinstance(cached, dict) else None
+            if isinstance(games_cached, list):
+                _build_equipment_images_for_games(games_cached)
             return cached
     except Exception:
         pass
@@ -104,8 +197,11 @@ async def get_player_games_by_user_id_route(
     if data.get("code") != 200:
         raise HTTPException(status_code=404, detail="게임 목록을 찾을 수 없습니다.")
 
+    games = data.get("userGames", []) or []
+    if isinstance(games, list):
+        _build_equipment_images_for_games(games)
     result = {
-        "games": data.get("userGames", []),
+        "games": games,
         "next": data.get("next"),
     }
     try:

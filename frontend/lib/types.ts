@@ -313,6 +313,11 @@ export interface UserGame {
   itemTransferredDrone: number[];
   collectItemForLog: number[];
   equipFirstItemForLog: Record<string, number[]>;
+
+  /** 백엔드 item 테이블(code + image_path) 기반 장비 이미지 매핑 */
+  equipmentImages?: {
+    slots?: Record<string, { code: number; nameKr?: string | null; nameEn?: string | null; imagePath?: string | null }>;
+  };
 }
 
 

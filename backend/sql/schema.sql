@@ -38,6 +38,38 @@ CREATE TABLE IF NOT EXISTS character (
     "sourcePayload" JSONB DEFAULT '{}'::jsonb
 );
 
+CREATE TABLE IF NOT EXISTS item (
+    id          BIGSERIAL PRIMARY KEY,
+    type        TEXT NOT NULL CHECK (type IN ('weapon', 'armor')),
+    kind        TEXT NOT NULL,
+    name_kr     TEXT NOT NULL,
+    name_en     TEXT,
+    image_path  TEXT,
+    code        BIGINT NOT NULL,
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_item_type_code UNIQUE (type, code)
+);
+
+CREATE INDEX IF NOT EXISTS idx_item_type_kind ON item (type, kind);
+CREATE INDEX IF NOT EXISTS idx_item_name_kr   ON item (name_kr);
+CREATE INDEX IF NOT EXISTS idx_item_name_en   ON item (name_en);
+
+CREATE TABLE IF NOT EXISTS item_image_override (
+    id          BIGSERIAL PRIMARY KEY,
+    type        TEXT NOT NULL CHECK (type IN ('weapon', 'armor')),
+    code        BIGINT NOT NULL,
+    image_path  TEXT NOT NULL,
+    name_en     TEXT,
+    note        TEXT,
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_item_image_override_type_code UNIQUE (type, code)
+);
+
+CREATE INDEX IF NOT EXISTS idx_item_image_override_type_code
+    ON item_image_override (type, code);
+
 
 -- ============================================================
 -- 1. players (플레이어)

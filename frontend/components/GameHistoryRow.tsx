@@ -48,6 +48,26 @@ export default function GameHistoryRow({ game, catalog, onSelect }: GameHistoryR
   const kp = calcKillParticipation(game);
   const teamModeLabel = getTeamModeLabel(game.matchingTeamMode);
   const matchingModeLabel = getMatchingModeLabel(game.matchingMode);
+  const equipmentRaw = (game as unknown as Record<string, unknown>).equipment;
+  const equipmentImages = game.equipmentImages;
+  const equipmentSlots = equipmentImages?.slots ?? {};
+  const armorIcons = (equipmentRaw && typeof equipmentRaw === "object" && !Array.isArray(equipmentRaw))
+    ? [0, 1, 2, 3, 4]
+        .map((slot) => {
+          if (slot === 0) {
+            const weaponCode = Number((equipmentRaw as Record<string, unknown>)["0"]);
+            const dbImagePath = equipmentSlots["0"]?.imagePath ?? null;
+            if (!dbImagePath) return null;
+            return { slot, code: Number.isFinite(weaponCode) && weaponCode > 0 ? weaponCode : game.bestWeapon, imagePath: dbImagePath };
+          }
+          const code = Number((equipmentRaw as Record<string, unknown>)[String(slot)]);
+          if (!Number.isFinite(code) || code <= 0) return null;
+          const dbSlotPath = equipmentSlots[String(slot)]?.imagePath ?? null;
+          const imagePath = dbSlotPath ?? null;
+          return imagePath ? { slot, code, imagePath } : null;
+        })
+        .filter((x): x is { slot: number; code: number; imagePath: string } => Boolean(x))
+    : [];
 
   const isFirst = game.gameRank === 1;
 
@@ -209,6 +229,18 @@ export default function GameHistoryRow({ game, catalog, onSelect }: GameHistoryR
 
       {/* MMR */}
       <div className="ml-auto flex flex-col items-end shrink-0">
+        {armorIcons.length > 0 && (
+          <div className="flex items-center gap-1 mb-1">
+            {armorIcons.map((it) => (
+              <img
+                key={`${game.gameId}-${it.slot}-${it.code}`}
+                src={encodeURI(it.imagePath)}
+                alt={`equipment-${it.code}`}
+                className="w-9 h-9 rounded object-cover"
+              />
+            ))}
+          </div>
+        )}
         <span
           className="text-sm font-bold"
           style={{ color: game.mmrGain >= 0 ? "#00ff88" : "#ff3b3b" }}

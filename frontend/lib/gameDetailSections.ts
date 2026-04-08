@@ -4,6 +4,19 @@ import {
   type CharacterCatalogMap,
 } from "./characterDisplay";
 
+function equipmentSlotLabel(slot: string): string {
+  const n = Number(slot);
+  if (!Number.isFinite(n)) return `슬롯 ${slot}`;
+  const map: Record<number, string> = {
+    0: "무기",
+    1: "옷",
+    2: "머리",
+    3: "팔",
+    4: "다리",
+  };
+  return map[n] ?? `슬롯 ${slot}`;
+}
+
 /** 섹션 표시 순서 */
 export const GAME_DETAIL_SECTION_ORDER: string[] = [
   "플레이어·매칭",
@@ -160,6 +173,15 @@ export interface GameDetailSectionRow {
   key: string;
   label: string;
   value: string;
+  equipmentItems?: {
+    slot: string;
+    slotLabel: string;
+    itemCode: number;
+    name: string;
+    itemGrade: string;
+    armorType: string;
+    imagePath: string | null;
+  }[];
 }
 
 export function buildGameDetailSections(
@@ -176,6 +198,7 @@ export function buildGameDetailSections(
     const title = sectionTitleForKey(key);
     const rows = bySection.get(title) ?? [];
     let value = formatGameFieldValue(v);
+    let equipmentItems: GameDetailSectionRow["equipmentItems"] | undefined;
     if (key === "characterNum" && (typeof v === "number" || typeof v === "string")) {
       const n = Number(v);
       if (Number.isFinite(n)) {
@@ -185,10 +208,62 @@ export function buildGameDetailSections(
         }
       }
     }
+    if (key === "equipment" && v && typeof v === "object" && !Array.isArray(v)) {
+      const parts: string[] = [];
+      const eqObj = v as Record<string, unknown>;
+      const weaponCode = Number(eqObj["0"]);
+      const equipmentImages = game.equipmentImages;
+      const equipmentSlots = equipmentImages?.slots ?? {};
+      const weaponImagePath = equipmentSlots["0"]?.imagePath ?? null;
+      const weaponName = equipmentSlots["0"]?.nameKr || "무기";
+      const weaponItem =
+        Number.isFinite(weaponCode) && weaponCode > 0
+          ? {
+              slot: "0",
+              slotLabel: "무기",
+              itemCode: weaponCode,
+              name: weaponName,
+              itemGrade: "-",
+              armorType: "Weapon",
+              imagePath: weaponImagePath,
+            }
+          : null;
+      if (weaponItem) {
+        parts.push(`무기(slot0): ${weaponCode} (${weaponItem.name})`);
+      }
+      equipmentItems = Object.entries(eqObj)
+        .map(([slot, codeValue]) => {
+          if (slot === "0") return null;
+          const itemCode = Number(codeValue);
+          if (!Number.isFinite(itemCode) || itemCode <= 0) return null;
+          const slotLabel = equipmentSlotLabel(slot);
+          const dbSlot =
+            equipmentSlots[slot];
+          const name = dbSlot?.nameKr || "알 수 없는 아이템";
+          parts.push(`${slotLabel}: ${itemCode}${dbSlot?.nameKr ? ` (${name})` : ""}`);
+          return {
+            slot,
+            slotLabel,
+            itemCode,
+            name,
+            itemGrade: "-",
+            armorType: "-",
+            imagePath: dbSlot?.imagePath ?? null,
+          };
+        })
+        .filter((item): item is NonNullable<typeof item> => Boolean(item));
+      if (weaponItem) {
+        equipmentItems = [weaponItem, ...(equipmentItems ?? [])];
+      }
+      if (parts.length) {
+        value = parts.join("\n");
+      }
+    }
     rows.push({
       key,
       label: humanizeKey(key),
       value,
+      equipmentItems,
     });
     bySection.set(title, rows);
   }
