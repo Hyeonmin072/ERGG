@@ -423,10 +423,23 @@ export interface CharacterCatalogItem {
   nameEn: string | null;
   weaponType?: number | null;
   weaponCode?: number | null;
+  /** CharacterAttributes → WeaponTypeInfo 코드(best_weapon), 비어 있으면 제한 없음으로 취급 가능 */
+  masteryWeaponCodes?: number[];
 }
 
 export interface CharacterCatalogResponse {
   items: CharacterCatalogItem[];
+}
+
+/** POST /api/v1/ai/combo-win-probability */
+export interface ComboWinProbabilityRequest {
+  characterNums: [number, number, number];
+  bestWeapons: [number, number, number];
+}
+
+export interface ComboWinProbabilityResponse {
+  winProbability: number;
+  modelPath: string;
 }
 
 /** /api/v1/stats/characters — characterName은 Supabase character.nameKo 우선 */

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import CountUp from "react-countup";
 import {
   FlaskConical,
@@ -15,12 +15,15 @@ import {
 import {
   COMBO_ROSTER_NAMES,
   filterComboRoster,
-  mockComboWinRatePercent,
 } from "@/lib/comboRoster";
 import { getCharacterDefaultMiniSrc } from "@/lib/characterDefaultMini";
+import { getCharacterCatalog, getComboWinProbability, ApiError } from "@/lib/api";
+import type { CharacterCatalogItem } from "@/lib/types";
+import { getWeaponOptionsForCharacter } from "@/lib/weaponOptions";
 import "./combo-lab.css";
 
-type Slot = string | null;
+/** 슬롯 하나: 실험체 + 해당 슬롯에서 고른 무기 타입 코드(bestWeapon) */
+type SlotPick = { name: string; weaponCode: number } | null;
 
 const accent = "#2dd4bf";
 const accentSoft = "rgba(45, 212, 191, 0.4)";
@@ -65,18 +68,72 @@ function ComboCharacterThumb({ name, size = 38 }: { name: string; size?: number 
   );
 }
 
+function characterNumForName(
+  name: string,
+  catalogItems: CharacterCatalogItem[]
+): number {
+  const item = catalogItems.find(
+    (i) => (i.nameKo && i.nameKo === name) || i.name === name
+  );
+  const idx = COMBO_ROSTER_NAMES.indexOf(
+    name as (typeof COMBO_ROSTER_NAMES)[number]
+  );
+  return item?.characterNum ?? (idx >= 0 ? idx + 1 : 1);
+}
+
+function defaultWeaponCodeForName(
+  name: string,
+  catalogItems: CharacterCatalogItem[]
+): number {
+  const item = catalogItems.find(
+    (i) => (i.nameKo && i.nameKo === name) || i.name === name
+  );
+  const w = item?.weaponCode ?? item?.weaponType ?? 1;
+  return typeof w === "number" && !Number.isNaN(w) ? w : 1;
+}
+
+function buildComboPayload(
+  slots: [SlotPick, SlotPick, SlotPick],
+  catalogItems: CharacterCatalogItem[]
+): { characterNums: [number, number, number]; bestWeapons: [number, number, number] } {
+  const nums: number[] = [];
+  const weapons: number[] = [];
+  for (const s of slots) {
+    if (!s) continue;
+    nums.push(characterNumForName(s.name, catalogItems));
+    weapons.push(s.weaponCode);
+  }
+  return {
+    characterNums: nums as [number, number, number],
+    bestWeapons: weapons as [number, number, number],
+  };
+}
+
 export default function ComboWinratePage() {
-  const [slots, setSlots] = useState<[Slot, Slot, Slot]>([null, null, null]);
+  const [slots, setSlots] = useState<[SlotPick, SlotPick, SlotPick]>([
+    null,
+    null,
+    null,
+  ]);
   const [filter, setFilter] = useState("");
   const [demoRate, setDemoRate] = useState<number | null>(null);
   const [estimateKey, setEstimateKey] = useState(0);
+  const [catalogItems, setCatalogItems] = useState<CharacterCatalogItem[]>([]);
+  const [estimateLoading, setEstimateLoading] = useState(false);
+  const [estimateError, setEstimateError] = useState<string | null>(null);
+
+  useEffect(() => {
+    getCharacterCatalog()
+      .then((r) => setCatalogItems(r.items))
+      .catch(() => setCatalogItems([]));
+  }, []);
 
   const filtered = useMemo(() => filterComboRoster(filter), [filter]);
 
   const filled =
     slots[0] !== null && slots[1] !== null && slots[2] !== null;
   const trio: [string, string, string] | null = filled
-    ? [slots[0]!, slots[1]!, slots[2]!]
+    ? [slots[0]!.name, slots[1]!.name, slots[2]!.name]
     : null;
 
   const statusLabel = !filled
@@ -87,29 +144,45 @@ export default function ComboWinratePage() {
 
   const toggleCharacter = (name: string) => {
     setDemoRate(null);
+    setEstimateError(null);
     setSlots((prev) => {
-      const idx = prev.indexOf(name);
+      const idx = prev.findIndex((s) => s?.name === name);
       if (idx >= 0) {
-        const next: [Slot, Slot, Slot] = [...prev];
+        const next: [SlotPick, SlotPick, SlotPick] = [...prev];
         next[idx] = null;
         return next;
       }
       const empty = prev.findIndex((s) => !s);
+      const pick: SlotPick = {
+        name,
+        weaponCode: defaultWeaponCodeForName(name, catalogItems),
+      };
       if (empty >= 0) {
-        const next: [Slot, Slot, Slot] = [...prev];
-        next[empty] = name;
+        const next: [SlotPick, SlotPick, SlotPick] = [...prev];
+        next[empty] = pick;
         return next;
       }
-      const next: [Slot, Slot, Slot] = [...prev];
-      next[2] = name;
+      const next: [SlotPick, SlotPick, SlotPick] = [...prev];
+      next[2] = pick;
+      return next;
+    });
+  };
+
+  const setWeaponForSlot = (i: 0 | 1 | 2, weaponCode: number) => {
+    setDemoRate(null);
+    setEstimateError(null);
+    setSlots((prev) => {
+      const next = [...prev] as [SlotPick, SlotPick, SlotPick];
+      if (next[i]) next[i] = { ...next[i]!, weaponCode };
       return next;
     });
   };
 
   const clearSlot = (i: 0 | 1 | 2) => {
     setDemoRate(null);
+    setEstimateError(null);
     setSlots((prev) => {
-      const next: [Slot, Slot, Slot] = [...prev];
+      const next: [SlotPick, SlotPick, SlotPick] = [...prev];
       next[i] = null;
       return next;
     });
@@ -119,12 +192,28 @@ export default function ComboWinratePage() {
     setSlots([null, null, null]);
     setFilter("");
     setDemoRate(null);
+    setEstimateError(null);
   };
 
-  const runEstimate = () => {
+  const runEstimate = async () => {
     if (!trio) return;
-    setDemoRate(mockComboWinRatePercent(trio));
-    setEstimateKey((k) => k + 1);
+    setEstimateError(null);
+    setEstimateLoading(true);
+    setDemoRate(null);
+    try {
+      const body = buildComboPayload(slots, catalogItems);
+      const res = await getComboWinProbability(body);
+      setDemoRate(res.winProbability * 100);
+      setEstimateKey((k) => k + 1);
+    } catch (e) {
+      const msg =
+        e instanceof ApiError
+          ? String(e.message)
+          : "분석 요청에 실패했습니다.";
+      setEstimateError(msg);
+    } finally {
+      setEstimateLoading(false);
+    }
   };
 
   return (
@@ -177,8 +266,7 @@ export default function ComboWinratePage() {
                 </h1>
                 <p className="mt-1.5 text-xs sm:text-sm max-w-lg" style={{ color: "var(--text-secondary)" }}>
                   연구용 데모 모델 · 실험체{" "}
-                  <span className="font-mono text-teal-300/90">{COMBO_ROSTER_NAMES.length}</span>종 · 스쿼드 3인
-                  편성 후 분석
+                  <span className="font-mono text-teal-300/90">{COMBO_ROSTER_NAMES.length}</span>종 ·                   스쿼드 3인 · 슬롯마다 무기 타입 선택 후 분석
                 </p>
               </div>
             </div>
@@ -262,7 +350,7 @@ export default function ComboWinratePage() {
                   </p>
                 ) : (
                   filtered.map((name) => {
-                    const active = slots.includes(name);
+                    const active = slots.some((s) => s?.name === name);
                     return (
                       <button
                         key={name}
@@ -336,8 +424,8 @@ export default function ComboWinratePage() {
                     ] as const
                   ).map(([label, i]) => (
                     <div
-                      key={`${label}-${slots[i] ?? "empty"}`}
-                      className={`relative rounded-xl p-3.5 sm:p-4 flex items-center gap-3 min-h-[84px] ${
+                      key={`${label}-${slots[i]?.name ?? "empty"}`}
+                      className={`relative rounded-xl p-3.5 sm:p-4 flex items-start gap-3 min-h-[120px] ${
                         slots[i] ? "combo-animate-slot-in" : ""
                       }`}
                       style={{
@@ -348,33 +436,57 @@ export default function ComboWinratePage() {
                       }}
                     >
                       <span
-                        className="font-mono text-[10px] w-7 shrink-0 tracking-wider"
+                        className="font-mono text-[10px] w-7 shrink-0 tracking-wider pt-1"
                         style={{ color: accent }}
                       >
                         {label}
                       </span>
                       {slots[i] ? (
                         <>
-                          <ComboCharacterThumb name={slots[i]!} size={44} />
-                          <div className="flex-1 min-w-0">
-                            <p
-                              className="text-base sm:text-lg font-bold truncate"
-                              style={{ color: "var(--text-primary)" }}
+                          <ComboCharacterThumb name={slots[i]!.name} size={44} />
+                          <div className="flex-1 min-w-0 flex flex-col gap-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <p
+                                className="text-base sm:text-lg font-bold truncate"
+                                style={{ color: "var(--text-primary)" }}
+                              >
+                                {slots[i]!.name}
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => clearSlot(i)}
+                                className="p-2 rounded-lg hover:bg-white/10 transition-colors shrink-0 -mt-1"
+                                aria-label={`${slots[i]!.name} 제거`}
+                              >
+                                <X size={17} style={{ color: "var(--text-secondary)" }} />
+                              </button>
+                            </div>
+                            <label
+                              className="text-[10px] font-mono tracking-wide"
+                              style={{ color: "var(--text-secondary)" }}
                             >
-                              {slots[i]}
-                            </p>
-                            <p className="text-[10px] font-mono mt-0.5 opacity-70" style={{ color: accent }}>
-                              SLOT_{i + 1}_LOCK
-                            </p>
+                              무기 타입 (bestWeapon 코드)
+                            </label>
+                            <select
+                              value={slots[i]!.weaponCode}
+                              onChange={(e) =>
+                                setWeaponForSlot(i, Number(e.target.value))
+                              }
+                              className="w-full max-w-full text-xs sm:text-sm rounded-lg px-2.5 py-2 bg-black/35 border outline-none focus:border-teal-500/40"
+                              style={{
+                                color: "var(--text-primary)",
+                                borderColor: panelBorder,
+                              }}
+                            >
+                              {getWeaponOptionsForCharacter(
+                                characterNumForName(slots[i]!.name, catalogItems)
+                              ).map((o) => (
+                                <option key={o.code} value={o.code}>
+                                  {o.code}. {o.labelKo}
+                                </option>
+                              ))}
+                            </select>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => clearSlot(i)}
-                            className="p-2 rounded-lg hover:bg-white/10 transition-colors shrink-0"
-                            aria-label={`${slots[i]} 제거`}
-                          >
-                            <X size={17} style={{ color: "var(--text-secondary)" }} />
-                          </button>
                         </>
                       ) : (
                         <div className="flex-1 flex items-center justify-between gap-2">
@@ -400,10 +512,35 @@ export default function ComboWinratePage() {
                         : "inset 0 1px 0 rgba(255,255,255,0.03)",
                   }}
                 >
-                  {demoRate == null ? (
+                  {estimateLoading ? (
+                    <p
+                      className="text-sm font-mono"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      분석 중…
+                    </p>
+                  ) : estimateError ? (
+                    <div className="w-full max-w-sm text-center space-y-4">
+                      <p className="text-sm leading-relaxed" style={{ color: "#fca5a5" }}>
+                        {estimateError}
+                      </p>
+                      <button
+                        type="button"
+                        disabled={!filled}
+                        onClick={runEstimate}
+                        className="w-full py-3 rounded-xl text-sm font-bold transition-all disabled:opacity-35"
+                        style={{
+                          background: `linear-gradient(135deg, ${accent} 0%, #0d9488 100%)`,
+                          color: "rgba(4, 18, 20, 0.95)",
+                        }}
+                      >
+                        다시 시도
+                      </button>
+                    </div>
+                  ) : demoRate == null ? (
                     <button
                       type="button"
-                      disabled={!filled}
+                      disabled={!filled || estimateLoading}
                       onClick={runEstimate}
                       className="w-full max-w-sm py-4 sm:py-4 rounded-xl text-sm sm:text-base font-black tracking-wide transition-all duration-300 disabled:opacity-35 disabled:cursor-not-allowed enabled:hover:brightness-110 enabled:active:scale-[0.98] enabled:hover:shadow-[0_12px_40px_rgba(45,212,191,0.25)]"
                       style={{
@@ -425,7 +562,7 @@ export default function ComboWinratePage() {
                         className="font-mono text-[10px] tracking-[0.28em] uppercase mb-3"
                         style={{ color: "var(--text-secondary)" }}
                       >
-                        추정 승률 · 데모
+                        추정 1등 확률
                       </p>
                       <div
                         className="combo-countup-num flex items-baseline justify-center gap-0.5 text-5xl sm:text-6xl font-black tabular-nums leading-none"
@@ -456,7 +593,7 @@ export default function ComboWinratePage() {
                         </p>
                       )}
                       <p className="mt-3 text-[10px] font-mono opacity-55" style={{ color: "var(--text-secondary)" }}>
-                        * 서버 메타 연동 전 내부 데모 추정치입니다.
+                        * 백엔드 XGBoost · 각 슬롯에서 선택한 무기(bestWeapon) 코드로 추정
                       </p>
                       <button
                         type="button"

@@ -6,8 +6,9 @@ from fastapi import APIRouter, HTTPException, Query
 from ..clients.supabase_client import get_supabase_client
 from ..core.config import settings
 from ..data.weapon_type_ko import (
-    load_best_weapon_code_to_ko,
+    build_best_weapon_code_to_ko_db_first,
     resolve_weapon_display_name_for_stats,
+    weapon_code_to_ko_map_from_db_rows,
 )
 
 router = APIRouter()
@@ -112,7 +113,7 @@ async def get_character_stats(
     - 평균 RP 획득량(mmr_gain), 평균 TK(team_kill), 평균 킬(player_kill)
     """
     try:
-        # 실제 Supabase/Postgres 컬럼명(snake_case). schema.sql camelCase 마이그레이션 전 DB 호환.
+        # 운영 DB는 snake_case(game_id, …). camelCase 스키마와 병행 시 _row_get 으로 양쪽 키 처리.
         games_rows = _fetch_all_rows("games", "game_id,matching_mode,matching_team_mode")
         ranked_squad_game_ids = {
             _to_int(_row_get(g, "gameId", "game_id"))
@@ -128,7 +129,17 @@ async def get_character_stats(
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"games/game_details 조회 실패: {e}")
 
-    weapon_name_map = load_best_weapon_code_to_ko(settings.er_api_base_url, settings.er_api_key)
+    # 무기 코드 → 한글명: Supabase weapon 테이블 우선, 없는 코드만 ER API/정적 맵.
+    # 참고: 집계 키는 game_details.best_weapon. character.masteryWeaponCodes 는 통계 집계에 미사용.
+    try:
+        weapon_rows = _fetch_all_rows("weapon", "id,name,nameEn")
+    except Exception:
+        weapon_rows = []
+    weapon_name_map = build_best_weapon_code_to_ko_db_first(
+        weapon_code_to_ko_map_from_db_rows(weapon_rows),
+        settings.er_api_base_url,
+        settings.er_api_key,
+    )
 
     rows = [
         r for r in rows if _to_int(_row_get(r, "gameId", "game_id")) in ranked_squad_game_ids
@@ -139,7 +150,7 @@ async def get_character_stats(
 
     char_rows: list[dict] = []
     try:
-        char_rows = _fetch_all_rows("character", "name,name_ko,character_num")
+        char_rows = _fetch_all_rows("character", "name,name_ko,nameKo,characterNum")
     except Exception:
         pass
     alex_num = _resolve_alex_character_num(char_rows)
@@ -177,7 +188,7 @@ async def get_character_stats(
         a = agg[key]
         a["games"] += 1
         char_totals[c] += 1
-        a["wins"] += 1 if _to_int(r.get("victory")) == 1 else 0
+        a["wins"] += 1 if _to_int(_row_get(r, "victory")) == 1 else 0
         a["top3"] += 1 if _to_int(_row_get(r, "gameRank", "game_rank"), 999) <= 3 else 0
         a["sum_rank"] += _to_num(_row_get(r, "gameRank", "game_rank"))
         a["sum_damage_to_player"] += _to_num(_row_get(r, "damageToPlayer", "damage_to_player"))
@@ -186,7 +197,7 @@ async def get_character_stats(
         a["sum_team_kill"] += _to_num(_row_get(r, "teamKill", "team_kill"))
         a["sum_player_kill"] += _to_num(_row_get(r, "playerKill", "player_kill"))
 
-    # character 테이블: character_num ↔ 표시명 (name_ko 우선, 없으면 name)
+    # character 테이블: characterNum ↔ 표시명 (nameKo 우선, 없으면 name)
     char_name_map: dict[int, str] = {}
     for c in char_rows:
         num = _to_int(_row_get(c, "characterNum", "character_num"), -1)

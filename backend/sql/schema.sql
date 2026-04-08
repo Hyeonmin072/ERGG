@@ -20,7 +20,8 @@ CREATE TYPE matching_team_mode_type AS ENUM ('1', '2', '3'); -- 1=솔로, 3=스�
 -- ============================================================
 CREATE TABLE IF NOT EXISTS weapon (
     id          BIGINT PRIMARY KEY,
-    name        TEXT NOT NULL
+    name        TEXT NOT NULL,   -- 한글 표시 (통계/UI 단일 기준, best_weapon 코드 = id)
+    "nameEn"    TEXT             -- WeaponTypeInfo.type 영문; 동일 nameEn이 여러 id에 있을 수 있음
 );
 
 CREATE TABLE IF NOT EXISTS character (
@@ -32,6 +33,8 @@ CREATE TABLE IF NOT EXISTS character (
     "weaponType"    BIGINT,
     "weaponCode"    BIGINT,
     "battleType"    TEXT,
+    -- CharacterAttributes.mastery → WeaponTypeInfo 인덱스+1 (best_weapon과 동일)
+    "masteryWeaponCodes" BIGINT[] NOT NULL DEFAULT '{}'::BIGINT[],
     "sourcePayload" JSONB DEFAULT '{}'::jsonb
 );
 

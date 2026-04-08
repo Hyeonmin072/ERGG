@@ -1,11 +1,59 @@
+from typing import Annotated
+
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from ..clients.gemini_client import generate, build_coach_prompt, build_meta_prompt, build_route_prompt
 from ..clients.er_api_client import get_er_client
 from ..core.redis import cache_get, cache_set
 from datetime import date
 
 router = APIRouter()
+
+
+# ── 조합 1등 확률 (XGBoost) ───────────────────────────────────────────────────
+
+
+class ComboWinRequest(BaseModel):
+    """슬롯 순서는 무관 — 서버에서 (characterNum, bestWeapon) 쌍을 정렬해 학습과 동일하게 처리."""
+
+    characterNums: Annotated[list[int], Field(min_length=3, max_length=3)]
+    bestWeapons: Annotated[list[int], Field(min_length=3, max_length=3)]
+
+
+@router.post("/combo-win-probability")
+async def combo_win_probability(req: ComboWinRequest):
+    """
+    스쿼드 3인 조합의 1등(승리) 확률 P ∈ [0,1].
+    모델: train_combo_xgboost.py 산출물 (ml_models/combo_first_place/xgb_combo_first.json).
+    """
+    from ..services.combo_xgb_service import (
+        get_model,
+        get_model_path,
+        predict_win_probability,
+    )
+
+    if get_model() is None:
+        p = get_model_path()
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                f"조합 모델이 없습니다: {p} — "
+                "datasets/squadComboTeams.csv 생성 후 python3 train_combo_xgboost.py 실행"
+            ),
+        )
+    try:
+        p_win = predict_win_probability(
+            list(req.characterNums),
+            list(req.bestWeapons),
+        )
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "winProbability": round(p_win, 6),
+        "modelPath": str(get_model_path()),
+    }
 
 
 # ── 나쟈의 독설 ───────────────────────────────────────────────────────────────

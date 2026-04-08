@@ -10,6 +10,8 @@ import type {
   OctagonScore,
   CharacterStatsResponse,
   CharacterCatalogResponse,
+  ComboWinProbabilityRequest,
+  ComboWinProbabilityResponse,
 } from "./types";
 
 function normalizeBaseUrl(raw?: string): string {
@@ -180,6 +182,19 @@ export async function getMetaBriefing(): Promise<{
   date: string;
 }> {
   return apiFetch("/ai/meta");
+}
+
+/**
+ * 스쿼드 3인 조합 1등 확률 (XGBoost)
+ * POST /api/v1/ai/combo-win-probability
+ */
+export async function getComboWinProbability(
+  body: ComboWinProbabilityRequest
+): Promise<ComboWinProbabilityResponse> {
+  return apiFetch<ComboWinProbabilityResponse>("/ai/combo-win-probability", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
 }
 
 /**

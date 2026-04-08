@@ -1,0 +1,28 @@
+{
+  "featureCols": [
+    "characterNum1",
+    "bestWeapon1",
+    "characterNum2",
+    "bestWeapon2",
+    "characterNum3",
+    "bestWeapon3"
+  ],
+  "targetCol": "isFirstPlace",
+  "outputType": "probability",
+  "inference": {
+    "description": "스쿼드 조건에서 해당 판 1등(승리) 확률",
+    "method": "XGBClassifier.predict_proba(X)[:, 1]",
+    "range": "[0.0, 1.0]"
+  },
+  "nSamples": 1058,
+  "nPositive": 188,
+  "nNegative": 870,
+  "testSize": 0.2,
+  "metrics": {
+    "logLoss": 0.7159198965732935,
+    "brierScore": 0.22354182074786186,
+    "rocAuc": 0.4723230490018148,
+    "accuracyAt05": 0.6886792452830188
+  },
+  "csvPath": "/Users/hyeonmin/Documents/GitHub/ERGG/backend/datasets/squadComboTeams.csv"
+}

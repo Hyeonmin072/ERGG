@@ -71,6 +71,12 @@ function fmtStat(n: number): string {
   return n.toLocaleString("ko-KR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 }
 
+/** 정수 표시 전용(평균 딜 등): 소수점 제거 */
+function fmtInt(n: number): string {
+  if (!Number.isFinite(n)) return "—";
+  return Math.round(n).toLocaleString("ko-KR");
+}
+
 function NumCell({ children, mono }: { children: ReactNode; mono?: boolean }) {
   return (
     <span
@@ -554,7 +560,7 @@ export default function StatsPage() {
                       <NumCell mono>{fmtStat(row.avgRpGain)}</NumCell>
                     </td>
                     <td className="px-3 py-3 text-right">
-                      <NumCell mono>{fmtStat(row.avgDamage)}</NumCell>
+                      <NumCell mono>{fmtInt(row.avgDamage)}</NumCell>
                     </td>
                   </tr>
                 ))}
@@ -636,7 +642,7 @@ export default function StatsPage() {
                   평균RP <span style={{ color: "var(--text-primary)" }}>{fmtStat(row.avgRpGain)}</span>
                 </div>
                 <div>
-                  딜(플레이어) <span style={{ color: "var(--text-primary)" }}>{fmtStat(row.avgDamage)}</span>
+                  딜(플레이어) <span style={{ color: "var(--text-primary)" }}>{fmtInt(row.avgDamage)}</span>
                 </div>
               </div>
             </div>

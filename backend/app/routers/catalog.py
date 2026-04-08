@@ -21,9 +21,9 @@ def _pick(r: dict, *keys: str):
 async def list_characters():
     """
     Supabase `character` 테이블 — characterNum 기준 이름·무기 타입 등.
-    DB 컬럼은 snake_case(레거시)일 수 있음 → 응답은 프론트용 camelCase로 통일.
+    DB 컬럼은 camelCase(schema.sql) → 응답도 camelCase.
     """
-    cache_key = "catalog:characters:v1"
+    cache_key = "catalog:characters:v2"
     try:
         cached = await cache_get(cache_key)
         if cached:
@@ -35,8 +35,8 @@ async def list_characters():
         sb = get_supabase_client()
         resp = (
             sb.table("character")
-            .select("character_num,name,name_ko,name_en,weapon_type,weapon_code")
-            .order("character_num")
+            .select("characterNum,name,nameKo,nameEn,weaponType,weaponCode,masteryWeaponCodes")
+            .order("characterNum")
             .execute()
         )
         rows = resp.data or []
@@ -46,17 +46,19 @@ async def list_characters():
     items: list[dict] = []
     for r in rows:
         try:
-            cn = _pick(r, "characterNum", "character_num")
+            cn = _pick(r, "characterNum")
             if cn is None:
                 continue
+            mwc = _pick(r, "masteryWeaponCodes")
             items.append(
                 {
                     "characterNum": int(cn),
                     "name": (r.get("name") or "") or "",
-                    "nameKo": _pick(r, "nameKo", "name_ko"),
-                    "nameEn": _pick(r, "nameEn", "name_en"),
-                    "weaponType": _pick(r, "weaponType", "weapon_type"),
-                    "weaponCode": _pick(r, "weaponCode", "weapon_code"),
+                    "nameKo": _pick(r, "nameKo"),
+                    "nameEn": _pick(r, "nameEn"),
+                    "weaponType": _pick(r, "weaponType"),
+                    "weaponCode": _pick(r, "weaponCode"),
+                    "masteryWeaponCodes": list(mwc) if isinstance(mwc, list) else [],
                 }
             )
         except (TypeError, ValueError):
