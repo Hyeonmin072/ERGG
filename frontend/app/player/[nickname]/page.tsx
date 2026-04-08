@@ -114,7 +114,9 @@ export default function PlayerPage() {
       const recentGames = gamesData?.games ?? [];
       const { winRate, totalGames, avgKill, avgDamage, avgRank } = calcProfileStats(recentGames);
 
-      const rankPoint = recentGames[0]?.rankPoint ?? 0;
+      // 최근 1판이 일반전이면 rankPoint가 0/미제공일 수 있어, 가장 최신 랭크전 값을 우선 사용한다.
+      const latestRankedGame = recentGames.find((g) => g.matchingMode === 3);
+      const rankPoint = latestRankedGame?.rankPoint ?? recentGames[0]?.rankPoint ?? 0;
       const tier = getTierFromRP(rankPoint);
 
       const octagonFromGames = computeOctagonFromUserGames(recentGames, {
