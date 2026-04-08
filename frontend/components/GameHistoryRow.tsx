@@ -47,6 +47,7 @@ export default function GameHistoryRow({ game, catalog, onSelect }: GameHistoryR
   const miniSrc = getCharacterDefaultMiniSrc(charName);
   const kp = calcKillParticipation(game);
   const teamModeLabel = getTeamModeLabel(game.matchingTeamMode);
+  const isRanked = game.matchingMode === 3;
 
   const isFirst = game.gameRank === 1;
 
@@ -100,6 +101,17 @@ export default function GameHistoryRow({ game, catalog, onSelect }: GameHistoryR
           style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-secondary)", fontSize: "9px" }}
         >
           {teamModeLabel}
+        </span>
+        <span
+          className="text-xs px-1 rounded mt-0.5 font-bold"
+          style={{
+            backgroundColor: isRanked ? "rgba(99,102,241,0.25)" : "rgba(100,116,139,0.24)",
+            color: isRanked ? "#c7d2fe" : "#cbd5e1",
+            border: isRanked ? "1px solid rgba(129,140,248,0.45)" : "1px solid rgba(148,163,184,0.35)",
+            fontSize: "9px",
+          }}
+        >
+          {isRanked ? "랭크" : "일반"}
         </span>
       </div>
 
