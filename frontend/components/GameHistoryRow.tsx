@@ -3,14 +3,15 @@ import Image from "next/image";
 import type { UserGame } from "@/lib/types";
 import {
   formatDuration, formatNumber,
-  calcKillParticipation, getMatchingModeLabel, getTeamModeLabel,
+  getMatchingModeLabel,
 } from "@/lib/mock";
 import { getCharacterDefaultMiniSrc } from "@/lib/characterDefaultMini";
 import {
   resolveCharacterDisplayName,
   type CharacterCatalogMap,
 } from "@/lib/characterDisplay";
-import { Sword, Shield, Skull } from "lucide-react";
+import { getEquipmentGradeBackground } from "@/lib/equipmentGradeStyle";
+import { getWeaponGroupIconPathFromItemKind } from "@/lib/weaponKindGroupIcon";
 
 interface GameHistoryRowProps {
   game: UserGame;
@@ -20,56 +21,106 @@ interface GameHistoryRowProps {
   onSelect?: (game: UserGame) => void;
 }
 
-/** 1위 금색 알지비 R208 G192 B138 */
-const RANK_FIRST_GOLD = "#d0c08a";
+/** 1위만 살짝 강조 (나머지 순위·통계는 톤 통일) */
+const RANK_FIRST_GOLD = "#c4b89a";
 
-/** 전적 행 공통 배경 (은은한 회색) */
-const ROW_BG = "rgba(71, 85, 105, 0.22)";
+/** 카드·배경 톤 (슬레이트 글래스) */
+const ROW_BG =
+  "linear-gradient(180deg, rgba(30, 41, 59, 0.52) 0%, rgba(15, 23, 42, 0.44) 100%)";
 
-/** 순위별 좌측 강조선 색만. 1금 2은 3동·그 외 회색 */
+const ROW_SHADOW =
+  "0 2px 10px rgba(0, 0, 0, 0.32), 0 1px 3px rgba(0, 0, 0, 0.22)";
+
+/** 순위 좌측 라인 — 채도 낮은 슬레이트 계열 */
 function rankBorderColor(gameRank: number): string {
   switch (gameRank) {
     case 1:
       return RANK_FIRST_GOLD;
     case 2:
-      return "#cbd5e1";
+      return "rgba(148, 163, 184, 0.85)";
     case 3:
-      return "#b45309";
+      return "rgba(100, 116, 139, 0.9)";
     default:
-      return "#64748b";
+      return "rgba(71, 85, 105, 0.85)";
   }
 }
+
+const STAT_NUM = "var(--text-primary)";
+
+const BADGE_SURFACE = {
+  backgroundColor: "rgba(148, 163, 184, 0.1)",
+  color: "var(--text-secondary)",
+  border: "1px solid rgba(148, 163, 184, 0.2)",
+} as const;
+
+const BADGE_TERMINATE = {
+  backgroundColor: BADGE_SURFACE.backgroundColor,
+  border: BADGE_SURFACE.border,
+  color: "var(--text-primary)",
+} as const;
+
+/** 정수 통계 — 천 단위 콤마 */
+function fmtInt(n: number): string {
+  if (!Number.isFinite(n)) return "0";
+  return Math.trunc(n).toLocaleString("ko-KR");
+}
+
+/** 레벨 뱃지 — 불투명 검정 원, 이미지 모서리 밖으로 살짝 돌출 */
+const LEVEL_CIRCLE_CHAR =
+  "pointer-events-none absolute z-10 -bottom-1.5 -right-1.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-black text-[11px] font-bold tabular-nums text-white shadow-sm";
+const LEVEL_CIRCLE_WEAPON =
+  "pointer-events-none absolute z-10 -bottom-2 -right-2 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-black/50 text-[8px] font-bold tabular-nums leading-none text-white/80 shadow-sm";
 
 export default function GameHistoryRow({ game, catalog, onSelect }: GameHistoryRowProps) {
   const isWin = game.victory === 1 || game.gameRank === 1;
   const rankBorder = rankBorderColor(game.gameRank ?? 0);
   const charName = resolveCharacterDisplayName(game.characterNum, catalog);
   const miniSrc = getCharacterDefaultMiniSrc(charName);
-  const kp = calcKillParticipation(game);
-  const teamModeLabel = getTeamModeLabel(game.matchingTeamMode);
   const matchingModeLabel = getMatchingModeLabel(game.matchingMode);
+  const terminateDisplay = Math.max(
+    game.terminateCount ?? 0,
+    game.terminateCountCanNotEliminate ?? 0
+  );
   const equipmentRaw = (game as unknown as Record<string, unknown>).equipment;
   const equipmentImages = game.equipmentImages;
   const equipmentSlots = equipmentImages?.slots ?? {};
+  const weaponSlotMeta = equipmentSlots["0"];
+  const weaponGroupPath = getWeaponGroupIconPathFromItemKind(weaponSlotMeta?.kind);
+  const equipmentGrades = game.equipmentGrade ?? {};
+  const slotGrade = (slot: number): number | undefined => {
+    const raw = equipmentGrades[String(slot)];
+    const n = typeof raw === "number" ? raw : Number(raw);
+    return Number.isFinite(n) ? n : undefined;
+  };
   const armorIcons = (equipmentRaw && typeof equipmentRaw === "object" && !Array.isArray(equipmentRaw))
     ? [0, 1, 2, 3, 4]
         .map((slot) => {
+          const grade = slotGrade(slot);
           if (slot === 0) {
             const weaponCode = Number((equipmentRaw as Record<string, unknown>)["0"]);
             const dbImagePath = equipmentSlots["0"]?.imagePath ?? null;
             if (!dbImagePath) return null;
-            return { slot, code: Number.isFinite(weaponCode) && weaponCode > 0 ? weaponCode : game.bestWeapon, imagePath: dbImagePath };
+            return { slot, code: Number.isFinite(weaponCode) && weaponCode > 0 ? weaponCode : game.bestWeapon, imagePath: dbImagePath, grade };
           }
           const code = Number((equipmentRaw as Record<string, unknown>)[String(slot)]);
           if (!Number.isFinite(code) || code <= 0) return null;
           const dbSlotPath = equipmentSlots[String(slot)]?.imagePath ?? null;
           const imagePath = dbSlotPath ?? null;
-          return imagePath ? { slot, code, imagePath } : null;
+          return imagePath ? { slot, code, imagePath, grade } : null;
         })
-        .filter((x): x is { slot: number; code: number; imagePath: string } => Boolean(x))
+        .filter((x): x is { slot: number; code: number; imagePath: string; grade?: number } => Boolean(x))
     : [];
 
+  /** 슬롯: 0 무기(윗줄 가운데) · 1~4 방어구 2×2(옷·모자 / 팔·다리) */
+  type ArmorCell = (typeof armorIcons)[number] | null;
+  const byEquipmentSlot = new Map(armorIcons.map((it) => [it.slot, it] as const));
+  const weaponCell: ArmorCell = byEquipmentSlot.get(0) ?? null;
+  const armorQuad: ArmorCell[] = [1, 2, 3, 4].map((s) => byEquipmentSlot.get(s) ?? null);
+  const hasArmorSlot = armorQuad.some(Boolean);
+
   const isFirst = game.gameRank === 1;
+  /** ER: matchingMode 3 = 랭크 — RP·MMR 등락은 랭크만 표시 */
+  const isRanked = game.matchingMode === 3;
 
   return (
     <div
@@ -86,25 +137,25 @@ export default function GameHistoryRow({ game, catalog, onSelect }: GameHistoryR
             }
           : undefined
       }
-      className={`card-hover rounded-lg px-4 py-3 flex items-center gap-4 text-sm ${
+      className={`card-hover rounded-lg px-4 py-4 flex items-center gap-4 text-base min-h-[6rem] ${
         isFirst ? "rank-first-shimmer" : ""
       } ${onSelect ? "cursor-pointer" : ""}`}
       style={{
-        backgroundColor: ROW_BG,
+        background: ROW_BG,
         borderLeft: `3px solid ${rankBorder}`,
+        boxShadow: ROW_SHADOW,
       }}
     >
       {/* 승패 + 순위 + 시간 */}
-      <div className="shrink-0 flex flex-col items-center w-12">
+      <div className="shrink-0 flex flex-col items-center w-14">
         <span
-          className={`text-xs font-bold ${isFirst ? "rank-first-label" : ""}`}
+          className={`text-sm font-bold ${isFirst ? "rank-first-label" : ""}`}
           style={{
-            color:
-              isFirst
-                ? RANK_FIRST_GOLD
-                : isWin
-                  ? "#00ff88"
-                  : "#ff3b3b",
+            color: isFirst
+              ? RANK_FIRST_GOLD
+              : isWin
+                ? "rgba(167, 243, 208, 0.92)"
+                : "var(--text-primary)",
           }}
         >
           {isFirst
@@ -113,143 +164,202 @@ export default function GameHistoryRow({ game, catalog, onSelect }: GameHistoryR
               ? "WIN"
               : `${game.gameRank}위`}
         </span>
-        <span style={{ color: "var(--text-secondary)", fontSize: "10px" }}>
+        <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
           {formatDuration(game.duration)}
         </span>
-        <span
-          className="text-xs px-1 rounded mt-0.5"
-          style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-secondary)", fontSize: "9px" }}
-        >
-          {teamModeLabel}
-        </span>
-        <span
-          className="text-xs px-1 rounded mt-0.5 font-bold"
-          style={{
-            backgroundColor:
-              matchingModeLabel === "랭크"
-                ? "rgba(99,102,241,0.25)"
-                : matchingModeLabel === "코발트"
-                  ? "rgba(6,182,212,0.24)"
-                  : "rgba(100,116,139,0.24)",
-            color:
-              matchingModeLabel === "랭크"
-                ? "#c7d2fe"
-                : matchingModeLabel === "코발트"
-                  ? "#67e8f9"
-                  : "#cbd5e1",
-            border:
-              matchingModeLabel === "랭크"
-                ? "1px solid rgba(129,140,248,0.45)"
-                : matchingModeLabel === "코발트"
-                  ? "1px solid rgba(34,211,238,0.40)"
-                  : "1px solid rgba(148,163,184,0.35)",
-            fontSize: "9px",
-          }}
-        >
+        <span className="mt-0.5 rounded px-1.5 py-0.5 text-[11px] font-semibold" style={BADGE_SURFACE}>
           {matchingModeLabel}
         </span>
       </div>
 
-      {/* 캐릭터 (character 테이블 nameKo + 기본 미니 이미지) */}
-      <div className="shrink-0 flex flex-col items-center w-16">
-        <div
-          className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center text-xs font-bold shrink-0"
-          style={{ backgroundColor: "var(--bg-secondary)", color: "var(--neon-cyan)" }}
-        >
-          {miniSrc ? (
-            <Image
-              src={miniSrc}
-              alt={charName}
-              width={40}
-              height={40}
-              className="object-cover w-full h-full"
-              unoptimized
-            />
-          ) : (
-            game.characterNum
-          )}
+      {/* 캐릭터 + 무기 — 세로 기준 서로 중앙 정렬 */}
+      <div className="flex shrink-0 items-center gap-2">
+        <div className="flex w-[60px] shrink-0 flex-col items-center">
+          <div className="relative h-[60px] w-[60px] shrink-0">
+            <div
+              className="flex h-full w-full items-center justify-center overflow-hidden rounded-xl text-sm font-bold"
+              style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-secondary)" }}
+            >
+              {miniSrc ? (
+                <Image
+                  src={miniSrc}
+                  alt={charName}
+                  width={60}
+                  height={60}
+                  className="h-full w-full object-cover"
+                  unoptimized
+                />
+              ) : (
+                game.characterNum
+              )}
+            </div>
+            <span className={LEVEL_CIRCLE_CHAR} title={`레벨 ${game.characterLevel}`}>
+              {game.characterLevel}
+            </span>
+          </div>
+          <span
+            className="mt-0.5 w-[60px] truncate text-center text-sm leading-tight"
+            style={{ color: "var(--text-secondary)" }}
+            title={charName}
+          >
+            {charName}
+          </span>
         </div>
-        <span
-          className="text-xs mt-0.5 truncate w-16 text-center"
-          style={{ color: "var(--text-secondary)" }}
-          title={charName}
-        >
-          {charName}
-        </span>
+        {weaponGroupPath && (
+          <div className="relative h-[30px] w-[30px] shrink-0">
+            <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-lg bg-black/20 p-0.5">
+              <img
+                src={encodeURI(weaponGroupPath)}
+                alt={weaponSlotMeta?.nameKr ?? "무기 종류"}
+                className="h-full w-full object-contain"
+              />
+            </div>
+            <span
+              className={LEVEL_CIRCLE_WEAPON}
+              title={`무기 레벨 ${game.bestWeaponLevel}`}
+              style={{
+                WebkitTextStroke: "0.35px rgba(255, 255, 255, 0.85)",
+                paintOrder: "stroke fill",
+              }}
+            >
+              {game.bestWeaponLevel}
+            </span>
+          </div>
+        )}
       </div>
 
-      {/* KDA */}
-      <div className="flex flex-col items-center w-24 shrink-0">
-        <div className="flex items-center gap-1 font-bold" style={{ color: "var(--text-primary)" }}>
-          <Sword size={10} />
-          <span>{game.playerKill}</span>
-          <span style={{ color: "var(--text-secondary)" }}>/</span>
-          <Skull size={10} style={{ color: "#ff3b3b" }} />
-          <span style={{ color: "#ff3b3b" }}>{game.playerDeaths}</span>
-          <span style={{ color: "var(--text-secondary)" }}>/</span>
-          <Shield size={10} style={{ color: "#00d4ff" }} />
-          <span style={{ color: "#00d4ff" }}>{game.playerAssistant}</span>
+      {/* TK / K / A / D + 터미네이트 뱃지 */}
+      <div className="flex w-auto min-w-0 shrink-0 flex-col items-stretch gap-0.5">
+        <div className="flex flex-col items-start gap-px text-xs leading-tight">
+          <div className="flex items-baseline gap-1 tabular-nums">
+            <span className="w-4 shrink-0 font-normal" style={{ color: "var(--text-secondary)" }}>
+              TK
+            </span>
+            <span className="min-w-[1.5ch] text-right text-sm font-bold" style={{ color: STAT_NUM }}>
+              {fmtInt(game.teamKill)}
+            </span>
+          </div>
+          <div className="flex items-baseline gap-1 tabular-nums">
+            <span className="w-4 shrink-0 font-normal" style={{ color: "var(--text-secondary)" }}>
+              K
+            </span>
+            <span className="min-w-[1.5ch] text-right text-sm font-bold" style={{ color: STAT_NUM }}>
+              {fmtInt(game.playerKill)}
+            </span>
+          </div>
+          <div className="flex items-baseline gap-1 tabular-nums">
+            <span className="w-4 shrink-0 font-normal" style={{ color: "var(--text-secondary)" }}>
+              A
+            </span>
+            <span className="min-w-[1.5ch] text-right text-sm font-bold" style={{ color: STAT_NUM }}>
+              {fmtInt(game.playerAssistant)}
+            </span>
+          </div>
+          <div className="flex items-baseline gap-1 tabular-nums">
+            <span className="w-4 shrink-0 font-normal" style={{ color: "var(--text-secondary)" }}>
+              D
+            </span>
+            <span className="min-w-[1.5ch] text-right text-sm font-bold" style={{ color: STAT_NUM }}>
+              {fmtInt(game.playerDeaths)}
+            </span>
+          </div>
         </div>
-        <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
-          킬관여 {kp}
-        </span>
+        {terminateDisplay > 0 && (
+          <div
+            className="mt-1 flex w-full flex-wrap justify-center gap-1"
+            title="터미네이트 팀 수"
+            aria-label={`터미네이트 ${terminateDisplay}회`}
+          >
+            <span
+              className="inline-flex min-h-[1.25rem] items-center justify-center rounded-md px-1.5 py-0.5 text-xs font-semibold tabular-nums leading-none"
+              style={BADGE_TERMINATE}
+            >
+              T {terminateDisplay}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* 딜량 */}
-      <div className="flex flex-col items-center w-20 shrink-0">
-        <span className="font-bold" style={{ color: "#ffa726" }}>
+      <div className="flex w-[5.5rem] shrink-0 flex-col items-center">
+        <span className="font-bold tabular-nums" style={{ color: STAT_NUM }}>
           {formatNumber(game.damageToPlayer)}
         </span>
-        <span className="text-xs" style={{ color: "var(--text-secondary)" }}>딜량</span>
+        <span className="text-sm" style={{ color: "var(--text-secondary)" }}>딜량</span>
       </div>
 
-      {/* 사냥 (sm 이상) */}
-      <div className="flex flex-col items-center w-14 shrink-0 hidden sm:flex">
-        <span className="font-bold" style={{ color: "var(--neon-green)" }}>
-          {game.monsterKill}
-        </span>
-        <span className="text-xs" style={{ color: "var(--text-secondary)" }}>사냥</span>
-      </div>
-
-      {/* 최고 무기 레벨 (md 이상) */}
-      <div className="flex flex-col items-center w-14 shrink-0 hidden md:flex">
-        <span className="font-bold" style={{ color: "var(--neon-cyan)" }}>
-          Lv.{game.bestWeaponLevel}
-        </span>
-        <span className="text-xs" style={{ color: "var(--text-secondary)" }}>무기</span>
-      </div>
-
-      {/* 회복량 (lg 이상) */}
-      <div className="flex flex-col items-center w-16 shrink-0 hidden lg:flex">
-        <span className="font-bold" style={{ color: "#4ade80" }}>
-          {formatNumber(game.healAmount)}
-        </span>
-        <span className="text-xs" style={{ color: "var(--text-secondary)" }}>회복</span>
-      </div>
-
-      {/* MMR */}
-      <div className="ml-auto flex flex-col items-end shrink-0">
-        {armorIcons.length > 0 && (
-          <div className="flex items-center gap-1 mb-1">
-            {armorIcons.map((it) => (
-              <img
-                key={`${game.gameId}-${it.slot}-${it.code}`}
-                src={encodeURI(it.imagePath)}
-                alt={`equipment-${it.code}`}
-                className="w-9 h-9 rounded object-cover"
-              />
-            ))}
+      {/* 회복 + 랭크 시 RP·MMR (lg 이상, 나란히) */}
+      <div className="hidden shrink-0 items-center gap-3 lg:flex">
+        <div className="flex w-[4.5rem] shrink-0 flex-col items-center">
+          <span className="font-bold tabular-nums" style={{ color: STAT_NUM }}>
+            {formatNumber(game.healAmount)}
+          </span>
+          <span className="text-sm" style={{ color: "var(--text-secondary)" }}>회복</span>
+        </div>
+        {isRanked && (
+          <div className="flex shrink-0 flex-col items-center justify-center gap-0.5 border-l border-white/15 pl-3">
+            <span
+              className="text-base font-bold tabular-nums"
+              style={{
+                color:
+                  game.mmrGain >= 0 ? "rgba(167, 243, 208, 0.95)" : "rgba(248, 180, 180, 0.9)",
+              }}
+            >
+              {game.mmrGain >= 0 ? "+" : ""}
+              {game.mmrGain}
+            </span>
+            <span className="text-sm" style={{ color: "var(--text-secondary)" }}>
+              {game.rankPoint.toLocaleString()} RP
+            </span>
           </div>
         )}
-        <span
-          className="text-sm font-bold"
-          style={{ color: game.mmrGain >= 0 ? "#00ff88" : "#ff3b3b" }}
-        >
-          {game.mmrGain >= 0 ? "+" : ""}{game.mmrGain}
-        </span>
-        <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
-          {game.rankPoint.toLocaleString()} RP
-        </span>
+      </div>
+
+      {/* 장비 아이콘 (우측) */}
+      <div className="ml-auto flex flex-col items-end justify-center shrink-0">
+        {armorIcons.length > 0 && (
+          <div className="mb-1 flex w-[6rem] flex-col gap-y-1.5">
+            {weaponCell && (
+              <div className="flex w-full justify-center">
+                <div
+                  className="h-7 w-11 shrink-0 overflow-hidden rounded border border-white/28 p-[2px] shadow-[0_2px_8px_rgba(0,0,0,0.55),0_1px_2px_rgba(0,0,0,0.35)]"
+                  style={{ background: getEquipmentGradeBackground(weaponCell.grade) }}
+                >
+                  <img
+                    src={encodeURI(weaponCell.imagePath)}
+                    alt={`equipment-${weaponCell.code}`}
+                    className="h-full w-full rounded-[3px] object-cover object-center"
+                  />
+                </div>
+              </div>
+            )}
+            {hasArmorSlot && (
+              <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 place-items-center">
+                {armorQuad.map((it, idx) =>
+                  it ? (
+                    <div
+                      key={`${game.gameId}-${it.slot}-${it.code}`}
+                      className="h-7 w-11 shrink-0 overflow-hidden rounded border border-white/28 p-[2px] shadow-[0_2px_8px_rgba(0,0,0,0.55),0_1px_2px_rgba(0,0,0,0.35)]"
+                      style={{ background: getEquipmentGradeBackground(it.grade) }}
+                    >
+                      <img
+                        src={encodeURI(it.imagePath)}
+                        alt={`equipment-${it.code}`}
+                        className="h-full w-full rounded-[3px] object-cover object-center"
+                      />
+                    </div>
+                  ) : (
+                    <div
+                      key={`${game.gameId}-armor-empty-${idx}`}
+                      className="h-7 w-11 shrink-0"
+                      aria-hidden
+                    />
+                  ),
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

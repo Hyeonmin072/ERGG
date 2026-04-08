@@ -53,9 +53,10 @@ export function formatDuration(seconds: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
+/** 천 단위 콤마 (예: 10,000) */
 export function formatNumber(n: number): string {
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
-  return n.toString();
+  if (!Number.isFinite(n)) return "0";
+  return Math.round(n).toLocaleString("ko-KR");
 }
 
 // ── 게임 통계 계산 유틸 ───────────────────────────────────────
@@ -76,11 +77,24 @@ export function calcProfileStats(games: UserGame[]) {
   };
 }
 
+/** 킬 관여율 라벨 + 게이지 채움 비율(0–100, teamKill 없으면 null) */
+export function getKillParticipationGauge(game: UserGame): {
+  label: string;
+  fillPercent: number | null;
+} {
+  if (!game.teamKill || game.teamKill === 0) {
+    return { label: "—", fillPercent: null };
+  }
+  const rate = ((game.playerKill + game.playerAssistant) / game.teamKill) * 100;
+  return {
+    label: `${Math.round(rate)}%`,
+    fillPercent: Math.min(Math.max(rate, 0), 100),
+  };
+}
+
 /** 킬 관여율 계산 */
 export function calcKillParticipation(game: UserGame): string {
-  if (!game.teamKill || game.teamKill === 0) return "—";
-  const rate = ((game.playerKill + game.playerAssistant) / game.teamKill) * 100;
-  return `${Math.round(rate)}%`;
+  return getKillParticipationGauge(game).label;
 }
 
 /** 매칭 모드 라벨 */
@@ -88,12 +102,6 @@ export function getMatchingModeLabel(mode: number): string {
   if (mode === 3) return "랭크";
   if (mode === 4) return "코발트";
   return "일반";
-}
-
-/** 팀 모드 라벨 (ER: 솔로·스쿼드(3인) 중심) */
-export function getTeamModeLabel(teamMode: number): string {
-  const map: Record<number, string> = { 1: "솔로", 3: "스쿼드", 4: "코발트" };
-  return map[teamMode] ?? `팀 모드 ${teamMode}`;
 }
 
 // ── 목 데이터 ─────────────────────────────────────────────────
@@ -113,6 +121,7 @@ const BASE_GAME: UserGame = {
   totalFieldKill: 5, teamElimination: 0, teamDown: 5,
   totalDoubleKill: 0, totalTripleKill: 0, totalQuadraKill: 0, totalExtraKill: 0,
   killGamma: false,
+  terminateCount: 0,
   killsPhaseOne: 0, killsPhaseTwo: 0, killsPhaseThree: 0,
   deathsPhaseOne: 1, deathsPhaseTwo: 1, deathsPhaseThree: 0,
   watchTime: 0, totalTime: 411, survivableTime: 30,

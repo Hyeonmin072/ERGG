@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import type { UserGame } from "@/lib/types";
 import type { CharacterCatalogMap } from "@/lib/characterDisplay";
 import { buildGameDetailSections } from "@/lib/gameDetailSections";
+import { getEquipmentGradeBackground } from "@/lib/equipmentGradeStyle";
 
 const BORDER = "rgba(255,255,255,0.10)";
 const SUBTLE = "var(--text-secondary)";
@@ -107,25 +108,27 @@ export default function GameDetailModal({ game, onClose, catalog }: GameDetailMo
                         style={{ color: "var(--text-primary)" }}
                       >
                         {row.equipmentItems?.length ? (
-                          <div className="grid grid-cols-1 gap-2">
+                          <div className="grid grid-cols-1 gap-3">
                             {row.equipmentItems.map((item) => (
                               <div
                                 key={`${item.slot}-${item.itemCode}`}
-                                className="flex items-center gap-2 rounded-md px-2 py-1.5"
+                                className="flex items-center gap-2.5 rounded-md px-2 py-1.5"
                                 style={{ background: "rgba(255,255,255,0.04)" }}
                               >
                                 <div
-                                  className="relative w-14 h-14 rounded overflow-hidden shrink-0"
-                                  style={{ background: "rgba(255,255,255,0.06)" }}
+                                  className="relative w-[4.25rem] h-12 rounded overflow-hidden shrink-0 border border-white/28 p-[2px] shadow-[0_2px_10px_rgba(0,0,0,0.5),0_1px_3px_rgba(0,0,0,0.4)]"
+                                  style={{
+                                    background: getEquipmentGradeBackground(item.equipmentGradeNum),
+                                  }}
                                 >
                                   {item.imagePath ? (
                                     <img
                                       src={encodeURI(item.imagePath)}
                                       alt={item.name}
-                                      className="w-full h-full object-cover"
+                                      className="h-full w-full rounded-[3px] object-cover object-center"
                                     />
                                   ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-[10px]">
+                                    <div className="w-full h-full flex items-center justify-center rounded-[3px] text-[10px]">
                                       ?
                                     </div>
                                   )}

@@ -53,7 +53,7 @@ def _build_equipment_images_for_games(games: list[dict]) -> None:
         if weapon_codes:
             resp = (
                 sb.table("item")
-                .select("type,code,name_kr,name_en,image_path")
+                .select("type,code,kind,name_kr,name_en,image_path")
                 .eq("type", "weapon")
                 .in_("code", sorted(weapon_codes))
                 .execute()
@@ -65,7 +65,7 @@ def _build_equipment_images_for_games(games: list[dict]) -> None:
         if armor_codes:
             resp = (
                 sb.table("item")
-                .select("type,code,name_kr,name_en,image_path")
+                .select("type,code,kind,name_kr,name_en,image_path")
                 .eq("type", "armor")
                 .in_("code", sorted(armor_codes))
                 .execute()
@@ -93,6 +93,7 @@ def _build_equipment_images_for_games(games: list[dict]) -> None:
                     continue
                 out["slots"][slot] = {
                     "code": c,
+                    "kind": r.get("kind"),
                     "nameKr": r.get("name_kr"),
                     "nameEn": r.get("name_en"),
                     "imagePath": r.get("image_path"),

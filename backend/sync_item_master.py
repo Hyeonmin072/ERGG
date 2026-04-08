@@ -11,6 +11,11 @@ ER Open API ItemWeapon/ItemArmor -> Supabase item 테이블 동기화.
 
 실행:
   cd backend && PYTHONPATH=. python3 sync_item_master.py
+
+l10n (선택):
+  리포트 루트에 l10n-English.txt / l10n-Korean.txt 가 있으면 Item/Name/{code} 키로
+  name_en / name_kr 을 대조해 저장하고, 영문명 기준으로 image_path 를 맞춘다.
+  경로는 L10N_EN_PATH / L10N_KR_PATH 로 재정의 가능.
 """
 
 from __future__ import annotations
@@ -64,6 +69,10 @@ ARMOR_KIND_TO_FOLDER: dict[str, str] = {
     "Arm": "03. Arm, Accessory",
     "Leg": "04. Leg",
 }
+
+L10N_ITEM_NAME_PREFIX = "Item/Name/"
+# l10n 줄 구분자(세로 막대 U+2503)
+L10N_SEP = "\u2503"
 
 
 def _log(msg: str) -> None:
@@ -160,12 +169,175 @@ def _parse_numbered_pngs(folder: Path, web_prefix: str) -> list[tuple[int, str, 
     return out
 
 
+def _collect_numbered_pngs_recursive(
+    item_root: Path,
+    *,
+    weapons: bool,
+    exclude_weapon_group: bool = True,
+) -> list[tuple[int, str, str]]:
+    """
+    `NNN. 영문이름.png` 만 수집. 파일명에서 순번을 떼면 영문 표기(스템) — l10n name_en 과 동일 비교용.
+    무기: 00. Weapon Group(타입 아이콘)은 기본 제외.
+    """
+    sub = "01. Weapons" if weapons else "02. Armor"
+    base = item_root / sub
+    out: list[tuple[int, str, str]] = []
+    if not base.is_dir():
+        return out
+    for p in base.rglob("*.png"):
+        if exclude_weapon_group and weapons and "00. Weapon Group" in p.parts:
+            continue
+        m = re.match(r"^(\d+)\.\s*(.+)\.png$", p.name)
+        if not m:
+            continue
+        idx = int(m.group(1))
+        stem = m.group(2).strip()
+        rel = p.relative_to(item_root)
+        web = "/images/Item/" + rel.as_posix()
+        out.append((idx, stem, web))
+    out.sort(key=lambda x: (x[2], x[0]))
+    return out
+
+
+def _nfc(s: str) -> str:
+    return unicodedata.normalize("NFC", (s or "").strip())
+
+
 def _normalize_name(s: str) -> str:
     s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode("ascii")
     s = s.lower().replace("&", " and ").replace("_", " ").replace("-", " ")
     s = re.sub(r"[^a-z0-9 ]+", " ", s)
     s = re.sub(r"\s+", " ", s).strip()
     return s
+
+
+def _parse_l10n_item_names(path: Path) -> dict[int, str]:
+    """
+    l10n-*.txt 에서 Item/Name/{code}┃표시이름 줄만 추출.
+    """
+    if not path.is_file():
+        return {}
+    out: dict[int, str] = {}
+    with path.open("r", encoding="utf-8", errors="replace") as f:
+        for raw in f:
+            line = raw.strip("\r\n")
+            if not line.startswith(L10N_ITEM_NAME_PREFIX):
+                continue
+            sep_idx = line.find(L10N_SEP)
+            if sep_idx < 0:
+                continue
+            key_part = line[len(L10N_ITEM_NAME_PREFIX) : sep_idx]
+            val = line[sep_idx + len(L10N_SEP) :].strip()
+            if not val:
+                continue
+            m = re.fullmatch(r"(\d+)", key_part.strip())
+            if not m:
+                continue
+            code = int(m.group(1))
+            out[code] = val
+    return out
+
+
+def _apply_l10n_names(
+    rows: list[dict[str, Any]],
+    en_by_code: dict[int, str],
+    kr_by_code: dict[int, str],
+) -> int:
+    """행에 l10n 기반 name_kr / name_en 반영. 반환: 갱신된 행 수(이름이 하나라도 바뀐 경우 카운트)."""
+    n = 0
+    for row in rows:
+        code = int(row["code"])
+        changed = False
+        if code in kr_by_code:
+            row["name_kr"] = kr_by_code[code]
+            changed = True
+        if code in en_by_code:
+            row["name_en"] = en_by_code[code]
+            changed = True
+        if changed:
+            n += 1
+    return n
+
+
+def _l10n_en_matches_png_stem(name_en: str, file_stem: str) -> bool:
+    """
+    l10n `Item/Name` 영문과 파일명에서 순번(`NNN. `)을 뺀 스템이 같은지.
+    macOS 파일명 NFD vs l10n NFC 차이는 NFC로 통일 후 비교.
+    """
+    a = _nfc(name_en)
+    b = _nfc(file_stem)
+    if not a or not b:
+        return False
+    if a.casefold() == b.casefold():
+        return True
+    na = _normalize_name(a)
+    nb = _normalize_name(b)
+    return bool(na) and na == nb
+
+
+def _apply_l10n_image_mapping(rows: list[dict[str, Any]], backend_dir: Path) -> None:
+    """
+    l10n name_en 과 `NNN. {영문}.png` 스템이 같으면 해당 image_path 저장 (유사도 없음).
+    먼저 API kind에 해당하는 하위 폴더만 보고, 없으면 무기/방어구 트리 전체에서 동일 규칙으로 재탐색.
+    """
+    _log("l10n 영문명 기준 이미지 매핑 시작 (스템=영문 일치, 폴더 우선 후 전체 탐색)")
+    repo_root = backend_dir.parent
+    item_root = repo_root / "frontend" / "public" / "images" / "Item"
+    weapon_root = item_root / "01. Weapons"
+    armor_root = item_root / "02. Armor"
+
+    all_weapon_pngs = _collect_numbered_pngs_recursive(item_root, weapons=True)
+    all_armor_pngs = _collect_numbered_pngs_recursive(item_root, weapons=False)
+
+    grouped: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for row in rows:
+        grouped.setdefault((str(row.get("type")), str(row.get("kind"))), []).append(row)
+    for arr in grouped.values():
+        arr.sort(key=lambda r: int(r["code"]))
+
+    def pick_png(name_en: str, pngs: list[tuple[int, str, str]]) -> str | None:
+        ne = name_en.strip()
+        if not ne or not pngs:
+            return None
+        for _, stem, web in pngs:
+            if _l10n_en_matches_png_stem(ne, stem):
+                return web
+        return None
+
+    filled = 0
+    for kind, folder in WEAPON_KIND_TO_FOLDER.items():
+        arr = grouped.get(("weapon", kind))
+        if not arr:
+            continue
+        local_pngs = _parse_numbered_pngs(weapon_root / folder, f"/images/Item/01. Weapons/{folder}")
+        for row in arr:
+            if row.get("image_path"):
+                continue
+            ne = (row.get("name_en") or "").strip()
+            if not ne:
+                continue
+            path = pick_png(ne, local_pngs) or pick_png(ne, all_weapon_pngs)
+            if path:
+                row["image_path"] = path
+                filled += 1
+
+    for kind, folder in ARMOR_KIND_TO_FOLDER.items():
+        arr = grouped.get(("armor", kind))
+        if not arr:
+            continue
+        local_pngs = _parse_numbered_pngs(armor_root / folder, f"/images/Item/02. Armor/{folder}")
+        for row in arr:
+            if row.get("image_path"):
+                continue
+            ne = (row.get("name_en") or "").strip()
+            if not ne:
+                continue
+            path = pick_png(ne, local_pngs) or pick_png(ne, all_armor_pngs)
+            if path:
+                row["image_path"] = path
+                filled += 1
+
+    _log(f"l10n 영문명 이미지 매핑 완료: 신규 설정 {filled}건")
 
 
 def _translate_ko_to_en(text: str, cache: dict[str, str]) -> str | None:
@@ -238,6 +410,9 @@ def _apply_local_image_mapping(rows: list[dict[str, Any]], backend_dir: Path) ->
         # row별 best/second 후보를 구해 고신뢰만 자동 반영
         row_infos: list[dict[str, Any]] = []
         for ri, row in enumerate(arr):
+            if row.get("image_path"):
+                row_infos.append({"ri": ri, "cands": [], "translated_en": "", "skip": True})
+                continue
             base_name_en = (row.get("name_en") or "").strip()
             translated_en = _translate_ko_to_en(str(row.get("name_kr") or ""), translate_cache) or ""
             targets = [x for x in [base_name_en, translated_en] if x]
@@ -281,6 +456,8 @@ def _apply_local_image_mapping(rows: list[dict[str, Any]], backend_dir: Path) ->
 
         # 2차: 미매칭/저신뢰 항목은 리포트로 남김
         for info in row_infos:
+            if info.get("skip"):
+                continue
             ri = info["ri"]
             if ri in used_rows:
                 continue
@@ -414,16 +591,38 @@ def build_item_rows(api_key: str, backend_dir: Path) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     out.extend(_merge_locale_rows("weapon", weapon_rows_kr, weapon_rows_en))
     out.extend(_merge_locale_rows("armor", armor_rows_kr, armor_rows_en))
-    # 순서 추정 기반 매핑은 아이템별 오매핑 가능성이 있어 기본 비활성화.
-    # 필요 시 환경변수 ENABLE_HEURISTIC_IMAGE_MAPPING=true 로 켠다.
-    if os.getenv("ENABLE_HEURISTIC_IMAGE_MAPPING", "").strip().lower() in {"1", "true", "yes", "on"}:
-        _apply_local_image_mapping(out, backend_dir)
-
     # type+code 기준 중복 방지
     uniq: dict[tuple[str, int], dict[str, Any]] = {}
     for row in out:
         uniq[(row["type"], row["code"])] = row
-    return list(uniq.values())
+    rows = list(uniq.values())
+
+    repo_root = backend_dir.parent
+    l10n_env = os.getenv("ENABLE_L10N", "true").strip().lower()
+    enable_l10n = l10n_env in {"1", "true", "yes", "on", ""}
+    if enable_l10n:
+        en_path = Path(os.getenv("L10N_EN_PATH", str(repo_root / "l10n-English.txt")))
+        kr_path = Path(os.getenv("L10N_KR_PATH", str(repo_root / "l10n-Korean.txt")))
+        en_map = _parse_l10n_item_names(en_path)
+        kr_map = _parse_l10n_item_names(kr_path)
+        if en_map or kr_map:
+            n = _apply_l10n_names(rows, en_map, kr_map)
+            _log(
+                f"l10n 이름 적용: 파일 EN={en_path.name}({len(en_map)}키) KR={kr_path.name}({len(kr_map)}키) 갱신행={n}"
+            )
+        else:
+            _log(f"l10n 이름 스킵: EN/KR 파일 없음 또는 Item/Name 항목 없음 ({en_path}, {kr_path})")
+
+    l10n_img_env = os.getenv("ENABLE_L10N_IMAGE_MAPPING", "true").strip().lower()
+    if l10n_img_env in {"1", "true", "yes", "on", ""}:
+        _apply_l10n_image_mapping(rows, backend_dir)
+
+    # 순서 추정·번역 기반 매핑은 아이템별 오매칭 가능성이 있어 기본 비활성화.
+    # 필요 시 환경변수 ENABLE_HEURISTIC_IMAGE_MAPPING=true 로 켠다 (image_path 미설정 행만).
+    if os.getenv("ENABLE_HEURISTIC_IMAGE_MAPPING", "").strip().lower() in {"1", "true", "yes", "on"}:
+        _apply_local_image_mapping(rows, backend_dir)
+
+    return rows
 
 
 def _apply_db_overrides(rows: list[dict[str, Any]], sb_client) -> None:

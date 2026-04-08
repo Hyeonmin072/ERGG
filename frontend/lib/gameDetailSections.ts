@@ -10,7 +10,7 @@ function equipmentSlotLabel(slot: string): string {
   const map: Record<number, string> = {
     0: "무기",
     1: "옷",
-    2: "머리",
+    2: "모자",
     3: "팔",
     4: "다리",
   };
@@ -181,6 +181,8 @@ export interface GameDetailSectionRow {
     itemGrade: string;
     armorType: string;
     imagePath: string | null;
+    /** ER equipmentGrade 슬롯별 숫자 (3~6 등) */
+    equipmentGradeNum?: number;
   }[];
 }
 
@@ -211,6 +213,11 @@ export function buildGameDetailSections(
     if (key === "equipment" && v && typeof v === "object" && !Array.isArray(v)) {
       const parts: string[] = [];
       const eqObj = v as Record<string, unknown>;
+      const gradeForSlot = (slot: string): number | undefined => {
+        const raw = game.equipmentGrade?.[slot];
+        const n = typeof raw === "number" ? raw : Number(raw);
+        return Number.isFinite(n) ? n : undefined;
+      };
       const weaponCode = Number(eqObj["0"]);
       const equipmentImages = game.equipmentImages;
       const equipmentSlots = equipmentImages?.slots ?? {};
@@ -226,12 +233,13 @@ export function buildGameDetailSections(
               itemGrade: "-",
               armorType: "Weapon",
               imagePath: weaponImagePath,
+              equipmentGradeNum: gradeForSlot("0"),
             }
           : null;
       if (weaponItem) {
         parts.push(`무기(slot0): ${weaponCode} (${weaponItem.name})`);
       }
-      equipmentItems = Object.entries(eqObj)
+      const armorRows = Object.entries(eqObj)
         .map(([slot, codeValue]) => {
           if (slot === "0") return null;
           const itemCode = Number(codeValue);
@@ -240,7 +248,6 @@ export function buildGameDetailSections(
           const dbSlot =
             equipmentSlots[slot];
           const name = dbSlot?.nameKr || "알 수 없는 아이템";
-          parts.push(`${slotLabel}: ${itemCode}${dbSlot?.nameKr ? ` (${name})` : ""}`);
           return {
             slot,
             slotLabel,
@@ -249,12 +256,23 @@ export function buildGameDetailSections(
             itemGrade: "-",
             armorType: "-",
             imagePath: dbSlot?.imagePath ?? null,
+            equipmentGradeNum: gradeForSlot(slot),
+            hasNameKr: Boolean(dbSlot?.nameKr),
           };
         })
         .filter((item): item is NonNullable<typeof item> => Boolean(item));
-      if (weaponItem) {
-        equipmentItems = [weaponItem, ...(equipmentItems ?? [])];
+      armorRows.sort((a, b) => Number(a.slot) - Number(b.slot));
+      for (const row of armorRows) {
+        parts.push(
+          `${row.slotLabel}: ${row.itemCode}${row.hasNameKr ? ` (${row.name})` : ""}`,
+        );
       }
+      equipmentItems = weaponItem
+        ? [
+            weaponItem,
+            ...armorRows.map(({ hasNameKr: _, ...rest }) => rest),
+          ]
+        : armorRows.map(({ hasNameKr: _, ...rest }) => rest);
       if (parts.length) {
         value = parts.join("\n");
       }

@@ -66,6 +66,10 @@ export interface UserGame {
   totalQuadraKill: number;
   totalExtraKill: number;
   killGamma: boolean;
+  /** 터미네이트 팀 수 (ER userGames `terminateCount`) */
+  terminateCount?: number;
+  /** 터미네이트(제거 불가 팀) 관련 카운트 — UI에서는 `terminateCount`와 비교해 큰 값만 표시 */
+  terminateCountCanNotEliminate?: number;
 
   // 페이즈별 킬/데스
   killsPhaseOne: number;
@@ -316,7 +320,16 @@ export interface UserGame {
 
   /** 백엔드 item 테이블(code + image_path) 기반 장비 이미지 매핑 */
   equipmentImages?: {
-    slots?: Record<string, { code: number; nameKr?: string | null; nameEn?: string | null; imagePath?: string | null }>;
+    slots?: Record<
+      string,
+      {
+        code: number;
+        kind?: string | null;
+        nameKr?: string | null;
+        nameEn?: string | null;
+        imagePath?: string | null;
+      }
+    >;
   };
 }
 
