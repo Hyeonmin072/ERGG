@@ -25,7 +25,7 @@ import {
   ApiError,
 } from "@/lib/api";
 import { buildCharacterCatalogMap, type CharacterCatalogMap } from "@/lib/characterDisplay";
-import { MOCK_PLAYER, calcProfileStats, getTierFromRP } from "@/lib/mock";
+import { MOCK_PLAYER, calcProfileStats, getTierFromRankOrRP } from "@/lib/mock";
 import type { PlayerStats, UserGame, OctagonScore } from "@/lib/types";
 import {
   aggregateCombatMetrics,
@@ -45,6 +45,17 @@ const DEMO_NICKNAME = "김현민";
 const accent = "#38bdf8";
 const border = "rgba(56,189,248,0.15)";
 const borderHi = "rgba(56,189,248,0.28)";
+
+function pickLadderRank(game?: UserGame | null): number | null {
+  if (!game) return null;
+  const raw = game as unknown as Record<string, unknown>;
+  const candidates = [raw.rank, raw.userRank, raw.ranking, raw.ladderRank];
+  for (const v of candidates) {
+    const n = Number(v);
+    if (Number.isFinite(n) && n > 0) return Math.floor(n);
+  }
+  return null;
+}
 
 function MetricCard({
   label,
@@ -211,7 +222,8 @@ export default function PersonalMetricsPage() {
       setStats(null);
       setOctagon(ocFromGames ?? ocApi);
       setProfileRollup(calcProfileStats(list));
-      setRankPoint(list[0]?.rankPoint ?? 0);
+      const latestRankedGame = list.find((g) => g.matchingMode === 3);
+      setRankPoint(latestRankedGame?.rankPoint ?? list[0]?.rankPoint ?? 0);
     } catch (e) {
       if (e instanceof ApiError) {
         setError(e.status === 404 ? `"${nick}" 플레이어를 찾을 수 없습니다.` : e.message);
@@ -238,7 +250,9 @@ export default function PersonalMetricsPage() {
   const recent = recentGamesMetrics(games, 14, charCatalog);
   const maxDmg = Math.max(1, ...recent.map((r) => r.damage));
 
-  const tier = getTierFromRP(rankPoint);
+  const latestRankedGame = games.find((g) => g.matchingMode === 3);
+  const ladderRank = pickLadderRank(latestRankedGame);
+  const tier = getTierFromRankOrRP(rankPoint, ladderRank);
 
   return (
     <div

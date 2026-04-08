@@ -10,10 +10,10 @@ import GameDetailModal from "@/components/GameDetailModal";
 import { computeOctagonFromUserGames } from "@/lib/octagonFromGames";
 import {
   MOCK_PLAYER,
-  getTierColorFromRP,
-  getTierImageFromRP,
+  getTierColorFromRankOrRP,
+  getTierImageFromRankOrRP,
   formatNumber,
-  getTierFromRP,
+  getTierFromRankOrRP,
   calcProfileStats,
 } from "@/lib/mock";
 import {
@@ -30,6 +30,17 @@ import { RefreshCw, ChevronRight, Trophy, Sword, Target, Clock, AlertCircle } fr
 // ── 개발 환경 목 모드 ─────────────────────────────────────────
 const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "true";
 const WHITE_ACCENT = "rgba(255,255,255,0.92)";
+
+function pickLadderRank(game?: UserGame | null): number | null {
+  if (!game) return null;
+  const raw = game as unknown as Record<string, unknown>;
+  const candidates = [raw.rank, raw.userRank, raw.ranking, raw.ladderRank];
+  for (const v of candidates) {
+    const n = Number(v);
+    if (Number.isFinite(n) && n > 0) return Math.floor(n);
+  }
+  return null;
+}
 
 export default function PlayerPage() {
   const { nickname: rawParam } = useParams<{ nickname: string }>();
@@ -117,7 +128,8 @@ export default function PlayerPage() {
       // 최근 1판이 일반전이면 rankPoint가 0/미제공일 수 있어, 가장 최신 랭크전 값을 우선 사용한다.
       const latestRankedGame = recentGames.find((g) => g.matchingMode === 3);
       const rankPoint = latestRankedGame?.rankPoint ?? recentGames[0]?.rankPoint ?? 0;
-      const tier = getTierFromRP(rankPoint);
+      const ladderRank = pickLadderRank(latestRankedGame);
+      const tier = getTierFromRankOrRP(rankPoint, ladderRank);
 
       const octagonFromGames = computeOctagonFromUserGames(recentGames, {
         userId,
@@ -208,8 +220,10 @@ export default function PlayerPage() {
     );
   }
 
-  const tierColor = getTierColorFromRP(player.rankPoint);
-  const tierImageSrc = getTierImageFromRP(player.rankPoint);
+  const latestRankedGame = games.find((g) => g.matchingMode === 3);
+  const ladderRank = pickLadderRank(latestRankedGame);
+  const tierColor = getTierColorFromRankOrRP(player.rankPoint, ladderRank);
+  const tierImageSrc = getTierImageFromRankOrRP(player.rankPoint, ladderRank);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 fade-in">

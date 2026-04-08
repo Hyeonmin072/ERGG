@@ -1,6 +1,9 @@
 /**
- * 랭크 RP → 티어·디비전 표시 (2025 기준 구간).
- * 8100+ 데미갓/이터는 랭킹 정보 없이 동일 RP 구간으로 묶음.
+ * 랭크 RP → 티어·디비전 표시.
+ * 상위 티어는 래더 순위 기준(이터니티/데미갓)으로 우선 판정한다.
+ * - 이터니티: 상위 300위 이내
+ * - 데미갓: 상위 1000위 이내(이터니티 제외)
+ * 순위 정보가 없으면 RP 구간으로 판정한다.
  */
 
 export type TierBand =
@@ -16,8 +19,7 @@ export type TierBand =
 
 /** min~max(포함) 구간, 높은 RP부터 매칭 */
 const TIER_ROWS_DESC: { min: number; max: number; label: string }[] = [
-  { min: 8100, max: Number.MAX_SAFE_INTEGER, label: "데미갓" },
-  { min: 7400, max: 8099, label: "미스릴" },
+  { min: 7400, max: Number.MAX_SAFE_INTEGER, label: "미스릴" },
   { min: 7150, max: 7399, label: "메테오라이트 I" },
   { min: 6900, max: 7149, label: "메테오라이트 II" },
   { min: 6650, max: 6899, label: "메테오라이트 III" },
@@ -57,9 +59,21 @@ export function getTierFromRP(rp: number): string {
   return "언랭크";
 }
 
+export function getTopTierFromLadderRank(ladderRank?: number | null): string | null {
+  if (ladderRank == null) return null;
+  const n = Math.floor(ladderRank);
+  if (n <= 0) return null;
+  if (n <= 300) return "이터니티";
+  if (n <= 1000) return "데미갓";
+  return null;
+}
+
+export function getTierFromRankOrRP(rp: number, ladderRank?: number | null): string {
+  return getTopTierFromLadderRank(ladderRank) ?? getTierFromRP(rp);
+}
+
 export function getTierBandFromRP(rp: number): TierBand {
   const n = Math.floor(rp);
-  if (n >= 8100) return "demigod";
   if (n >= 7400) return "mithril";
   if (n >= 6400) return "meteorite";
   if (n >= 5000) return "diamond";
@@ -68,6 +82,12 @@ export function getTierBandFromRP(rp: number): TierBand {
   if (n >= 1400) return "silver";
   if (n >= 600) return "bronze";
   return "iron";
+}
+
+export function getTierBandFromRankOrRP(rp: number, ladderRank?: number | null): TierBand {
+  const topTier = getTopTierFromLadderRank(ladderRank);
+  if (topTier === "이터니티" || topTier === "데미갓") return "demigod";
+  return getTierBandFromRP(rp);
 }
 
 const BAND_COLOR: Record<TierBand, string> = {
@@ -89,23 +109,35 @@ const BAND_IMAGE: Record<TierBand, string> = {
   gold: "/images/tier/04.%20Gold.png",
   platinum: "/images/tier/05.%20Platinum.png",
   diamond: "/images/tier/06.%20Diamond.png",
-  meteorite: "/images/tier/09.%20Titan.png",
-  mithril: "/images/tier/09.%20Titan.png",
-  demigod: "/images/tier/10.%20Immortal.png",
+  meteorite: "/images/tier/07.%20Meteorite.png",
+  mithril: "/images/tier/08.%20Mithril.png",
+  demigod: "/images/tier/09.%20Titan.png",
 };
 
 export function getTierColorFromRP(rp: number): string {
   return BAND_COLOR[getTierBandFromRP(rp)] ?? "#94a3b8";
 }
 
+export function getTierColorFromRankOrRP(rp: number, ladderRank?: number | null): string {
+  return BAND_COLOR[getTierBandFromRankOrRP(rp, ladderRank)] ?? "#94a3b8";
+}
+
 export function getTierImageFromRP(rp: number): string {
   return BAND_IMAGE[getTierBandFromRP(rp)] ?? "/images/tier/00.%20Unrank.png";
+}
+
+export function getTierImageFromRankOrRP(rp: number, ladderRank?: number | null): string {
+  const topTier = getTopTierFromLadderRank(ladderRank);
+  if (topTier === "이터니티") return "/images/tier/10.%20Immortal.png";
+  if (topTier === "데미갓") return "/images/tier/09.%20Titan.png";
+  return BAND_IMAGE[getTierBandFromRankOrRP(rp, ladderRank)] ?? "/images/tier/00.%20Unrank.png";
 }
 
 /** 티어 문자열(라벨)만 있을 때 — 색/이미지 추정 */
 function bandFromTierLabel(tier: string): TierBand {
   const t = tier.trim();
-  if (t.includes("데미갓") || t.includes("이터")) return "demigod";
+  if (t.includes("데미갓")) return "demigod";
+  if (t.includes("이터")) return "demigod";
   if (t.includes("미스릴")) return "mithril";
   if (t.includes("메테오라이트")) return "meteorite";
   if (t.includes("다이아")) return "diamond";
@@ -124,5 +156,8 @@ export function getTierColor(tier: string): string {
 
 /** @deprecated 가능하면 getTierImageFromRP(rankPoint) 사용 */
 export function getTierImage(tier: string): string {
+  const t = tier.trim();
+  if (t.includes("이터")) return "/images/tier/10.%20Immortal.png";
+  if (t.includes("데미갓")) return "/images/tier/09.%20Titan.png";
   return BAND_IMAGE[bandFromTierLabel(tier)] ?? "/images/tier/00.%20Unrank.png";
 }

@@ -15,8 +15,11 @@ export const CHARACTER_NAMES: Record<number, string> = _characterNames;
 // ── 티어 유틸 (RP·디비전 구간은 lib/tier.ts) ─────────────────
 import {
   getTierFromRP,
+  getTierFromRankOrRP,
   getTierColorFromRP,
+  getTierColorFromRankOrRP,
   getTierImageFromRP,
+  getTierImageFromRankOrRP,
   getTierColor,
   getTierImage,
 } from "./tier";
@@ -24,8 +27,11 @@ import { computeOctagonFromUserGames } from "./octagonFromGames";
 
 export {
   getTierFromRP,
+  getTierFromRankOrRP,
   getTierColorFromRP,
+  getTierColorFromRankOrRP,
   getTierImageFromRP,
+  getTierImageFromRankOrRP,
   getTierColor,
   getTierImage,
 };
@@ -79,12 +85,14 @@ export function calcKillParticipation(game: UserGame): string {
 
 /** 매칭 모드 라벨 */
 export function getMatchingModeLabel(mode: number): string {
-  return mode === 3 ? "랭크" : "일반";
+  if (mode === 3) return "랭크";
+  if (mode === 4) return "코발트";
+  return "일반";
 }
 
 /** 팀 모드 라벨 (ER: 솔로·스쿼드(3인) 중심) */
 export function getTeamModeLabel(teamMode: number): string {
-  const map: Record<number, string> = { 1: "솔로", 3: "스쿼드" };
+  const map: Record<number, string> = { 1: "솔로", 3: "스쿼드", 4: "코발트" };
   return map[teamMode] ?? `팀 모드 ${teamMode}`;
 }
 

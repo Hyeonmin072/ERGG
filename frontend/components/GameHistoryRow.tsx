@@ -3,7 +3,7 @@ import Image from "next/image";
 import type { UserGame } from "@/lib/types";
 import {
   formatDuration, formatNumber,
-  calcKillParticipation, getTeamModeLabel,
+  calcKillParticipation, getMatchingModeLabel, getTeamModeLabel,
 } from "@/lib/mock";
 import { getCharacterDefaultMiniSrc } from "@/lib/characterDefaultMini";
 import {
@@ -47,7 +47,7 @@ export default function GameHistoryRow({ game, catalog, onSelect }: GameHistoryR
   const miniSrc = getCharacterDefaultMiniSrc(charName);
   const kp = calcKillParticipation(game);
   const teamModeLabel = getTeamModeLabel(game.matchingTeamMode);
-  const isRanked = game.matchingMode === 3;
+  const matchingModeLabel = getMatchingModeLabel(game.matchingMode);
 
   const isFirst = game.gameRank === 1;
 
@@ -105,13 +105,28 @@ export default function GameHistoryRow({ game, catalog, onSelect }: GameHistoryR
         <span
           className="text-xs px-1 rounded mt-0.5 font-bold"
           style={{
-            backgroundColor: isRanked ? "rgba(99,102,241,0.25)" : "rgba(100,116,139,0.24)",
-            color: isRanked ? "#c7d2fe" : "#cbd5e1",
-            border: isRanked ? "1px solid rgba(129,140,248,0.45)" : "1px solid rgba(148,163,184,0.35)",
+            backgroundColor:
+              matchingModeLabel === "랭크"
+                ? "rgba(99,102,241,0.25)"
+                : matchingModeLabel === "코발트"
+                  ? "rgba(6,182,212,0.24)"
+                  : "rgba(100,116,139,0.24)",
+            color:
+              matchingModeLabel === "랭크"
+                ? "#c7d2fe"
+                : matchingModeLabel === "코발트"
+                  ? "#67e8f9"
+                  : "#cbd5e1",
+            border:
+              matchingModeLabel === "랭크"
+                ? "1px solid rgba(129,140,248,0.45)"
+                : matchingModeLabel === "코발트"
+                  ? "1px solid rgba(34,211,238,0.40)"
+                  : "1px solid rgba(148,163,184,0.35)",
             fontSize: "9px",
           }}
         >
-          {isRanked ? "랭크" : "일반"}
+          {matchingModeLabel}
         </span>
       </div>
 
