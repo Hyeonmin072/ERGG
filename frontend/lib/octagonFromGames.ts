@@ -42,9 +42,9 @@ function tacticalUseCount(g: UserGame): number {
   return g.tacticalSkillLevel ?? 0;
 }
 
-const DPM_CAP = 2200;
-const KILL_CAP = 8;
-const ASSIST_CAP = 12;
+const DPM_CAP = 1400;
+const KILL_CAP = 6;
+const ASSIST_CAP = 8;
 const CC_CAP = 5;
 
 export interface ComputeOctagonOpts {
@@ -64,23 +64,23 @@ export function computeOctagonFromUserGames(
   const avgKeys = (...keys: string[]) =>
     slice.reduce((s, g) => s + pickNum(g, ...keys), 0) / n;
 
+  // --- [수정] 화력 출력 (Output) 계산: 스킬 비중 제거 및 비율 조정 ---
   const dpms: number[] = [];
-  const skillShares: number[] = [];
   for (const g of slice) {
     const dtp = pickNum(g, "damageToPlayer", "damage_to_player");
     const ptMin = Math.max(pickNum(g, "playTime", "play_time") / 60, 1 / 60);
     dpms.push(dtp / ptMin);
-    const dsk = pickNum(g, "damageToPlayer_skill", "damage_to_player_skill");
-    skillShares.push(dtp <= 0 ? 0 : Math.min(dsk / dtp, 1));
   }
   const avgDpm = dpms.reduce((a, b) => a + b, 0) / n;
   const avgKill = avgKeys("playerKill", "player_kill");
-  const avgSkillShare = skillShares.reduce((a, b) => a + b, 0) / n;
+
   const sDpm = Math.min(avgDpm / DPM_CAP, 1) * 100;
   const sKill = Math.min(avgKill / KILL_CAP, 1) * 100;
-  const sSkill = avgSkillShare * 100;
-  const rawOutput = sDpm * 0.45 + sKill * 0.35 + sSkill * 0.2;
 
+  // DPM 60% : 킬 40% 비율로 화력 점수 산출 (스킬 비중 제거)
+  const rawOutput = sDpm * 0.6 + sKill * 0.4;
+
+  // --- [수정] 결투 기여 (Engagement Dim) 계산: 전술 스킬 제거 및 비율 조정 ---
   const participations = slice.map((g) => {
     const tk = Math.max(pickNum(g, "teamKill", "team_kill"), 1);
     return Math.min(
@@ -89,17 +89,15 @@ export function computeOctagonFromUserGames(
     );
   });
   const avgParticipation = participations.reduce((a, b) => a + b, 0) / n;
-  const avgTac = slice.reduce((s, g) => s + tacticalUseCount(g), 0) / n;
-  const avgPt = Math.max(avgKeys("playTime", "play_time"), 60);
-  const tacPerMin = avgTac / (avgPt / 60);
-  const sTac = Math.min(tacPerMin * 25, 100);
   const avgAssist = avgKeys("playerAssistant", "player_assistant");
   const sAssist = Math.min(avgAssist / ASSIST_CAP, 1) * 100;
   const avgCc = avgKeys("ccTimeToPlayer", "cc_time_to_player");
   const sCc = Math.min(avgCc / CC_CAP, 1) * 100;
-  const rawEngagementDim =
-    avgParticipation * 100 * 0.42 + sTac * 0.33 + sAssist * 0.2 + sCc * 0.05;
 
+  // 관여율 60% : 어시스트 30% : CC기여 10% 비율로 기여 점수 산출 (전술 스킬 제거)
+  const rawEngagementDim = (avgParticipation * 100 * 0.6) + (sAssist * 0.3) + (sCc * 0.1);
+
+  // 최종 교전 점수 (화력 50% : 기여 50%)
   const rawEngagement = 0.5 * rawOutput + 0.5 * rawEngagementDim;
 
   const MK_CAP = 88;
@@ -117,8 +115,9 @@ export function computeOctagonFromUserGames(
   const rawVision = camAvg * 5.5 + avgView * 0.48;
 
   const avgRank = avgKeys("gameRank", "game_rank");
-  const rankPct = (1 - (avgRank - 1) / 23) * 100;
-  const rawSurvival = rankPct * 0.6 + (avgKeys("survivableTime", "survivable_time") / 600) * 100 * 0.4;
+  const rankPct = (1 - (avgRank - 1) / 7) * 100;
+  const timePct = Math.min(avgKeys("playTime", "play_time") / 1080 * 100, 100);
+  const rawSurvival = (rankPct * 0.4) + (timePct * 0.6);
 
   const hpms: number[] = [];
   for (const g of slice) {
