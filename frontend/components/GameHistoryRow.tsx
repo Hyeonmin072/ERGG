@@ -82,12 +82,56 @@ const LEVEL_CIRCLE_CHAR =
 const LEVEL_CIRCLE_WEAPON =
   "pointer-events-none absolute z-10 -bottom-2 -right-2 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-black/50 text-[8px] font-bold tabular-nums leading-none text-white/80 shadow-sm";
 
-/** 게임 결과 칭호 줄 — 추후 API·룰 기반으로 교체 */
-function dummyGameHonorLabels(game: UserGame): string[] {
-  const r = game.gameRank ?? 0;
-  if (r === 1) return ["『 리허설 1위 』", "전설 입문 (임시)"];
-  if (game.victory === 1) return ["『 연승 각 』 (임시)"];
-  return ["『 출첵 』 (임시)", "복습 권장 (임시)"];
+type HonorBadge = {
+  label: string;
+  conditionKo: string;
+};
+
+/** 게임 결과 칭호 줄 — 조건 충족한 칭호를 모두 표시 */
+function gameHonorLabels(game: UserGame): HonorBadge[] {
+  const labels: HonorBadge[] = [];
+  const raw = game as unknown as Record<string, unknown>;
+
+  if ((game.remoteDroneUseVFCreditMySelf ?? 0) >= 200) {
+    labels.push({
+      label: "배달의 민족",
+      conditionKo: "조건: 개인 원격 드론 사용 크레딧 200 이상",
+    });
+  }
+
+  if ((game.useEmoticonCount ?? 0) >= 15) {
+    labels.push({
+      label: "소통해요",
+      conditionKo: "조건: 이모트 사용 횟수 15회 이상",
+    });
+  }
+
+  const monitoringCount =
+    (game.useReconDrone ?? 0) + (game.useEmpDrone ?? 0) + (game.addTelephotoCamera ?? 0);
+  if (monitoringCount >= 20) {
+    labels.push({
+      label: "모니터링",
+      conditionKo: "조건: 정찰 드론 + EMP 드론 + 망원 카메라 합계 20 이상",
+    });
+  }
+
+  const mmrGainInGameRaw = Number(raw.mmrGainInGame ?? Number.NaN);
+  if (game.matchingMode === 3 && Number.isFinite(mmrGainInGameRaw) && mmrGainInGameRaw >= 150) {
+    labels.push({
+      label: "물로켓",
+      conditionKo: "조건: 랭크 게임에서 판당 MMR 획득 150 이상",
+    });
+  }
+
+  // 퍼펙트 플레이어: 한 판 무데스 + 1위
+  if (game.playerDeaths === 0 && game.gameRank === 1) {
+    labels.push({
+      label: "퍼펙트 플레이어",
+      conditionKo: "조건: 한 판에서 0데스 + 최종 1위",
+    });
+  }
+
+  return labels;
 }
 
 const HONOR_BADGE = {
@@ -160,6 +204,7 @@ export default function GameHistoryRow({ game, catalog, onSelect }: GameHistoryR
   const endOffsetSec =
     game.duration > 0 ? game.duration : game.playTime > 0 ? game.playTime : 0;
   const gameEndedRelativeKo = formatGameEndedRelativeKo(game.startDtm, endOffsetSec);
+  const honorLabels = gameHonorLabels(game);
   const traitCoreCode = Number(traitCore);
 
   return (
@@ -549,22 +594,23 @@ export default function GameHistoryRow({ game, catalog, onSelect }: GameHistoryR
       </div>
       </div>
 
-      {/* 게임별 결과 칭호 (추후 실데이터) — 더미 */}
-      <div
-        className="flex w-full min-w-0 flex-wrap items-center gap-1.5 border-t border-white/10 pt-2"
-        aria-label="게임 칭호 (임시 더미)"
-      >
-        {dummyGameHonorLabels(game).map((label, i) => (
-          <span
-            key={`${game.gameId}-honor-dummy-${i}`}
-            className="inline-flex max-w-full items-center truncate rounded-md px-2 py-0.5 text-[11px] font-medium leading-tight"
-            style={HONOR_BADGE}
-            title={label}
-          >
-            {label}
-          </span>
-        ))}
-      </div>
+      {honorLabels.length > 0 && (
+        <div
+          className="flex w-full min-w-0 flex-wrap items-center gap-1.5 border-t border-white/10 pt-2"
+          aria-label="게임 칭호"
+        >
+          {honorLabels.map((honor, i) => (
+            <span
+              key={`${game.gameId}-honor-${i}`}
+              className="inline-flex max-w-full items-center truncate rounded-md px-2 py-0.5 text-[11px] font-medium leading-tight"
+              style={HONOR_BADGE}
+              title={honor.conditionKo}
+            >
+              {honor.label}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
