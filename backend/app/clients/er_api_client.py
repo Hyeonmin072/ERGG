@@ -91,6 +91,13 @@ class ErApiClient:
         """상위 랭킹 조회."""
         return await self._get(f"/v1/rank/top/{season_id}/{team_mode}")
 
+    async def get_user_stats_by_user_id(self, user_id: str, season_id: int, matching_mode: int) -> dict:
+        """
+        GET /v2/user/stats/uid/{userId}/{seasonId}/{matchingMode}
+        응답에 포함된 rank(래더 등수) 조회용.
+        """
+        return await self._get(f"/v2/user/stats/uid/{user_id}/{season_id}/{matching_mode}")
+
     async def aclose(self):
         await self._client.aclose()
 

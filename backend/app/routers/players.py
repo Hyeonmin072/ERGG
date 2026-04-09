@@ -101,6 +101,28 @@ def _build_equipment_images_for_games(games: list[dict]) -> None:
         g["equipmentImages"] = out
 
 
+def _extract_ladder_rank(payload: object) -> int | None:
+    """
+    stats 응답에서 rank/userRank/ranking/ladderRank를 재귀 탐색해 첫 양수 등수를 반환.
+    """
+    stack: list[object] = [payload]
+    while stack:
+        cur = stack.pop()
+        if isinstance(cur, dict):
+            for k in ("rank", "userRank", "ranking", "ladderRank"):
+                n = _to_int(cur.get(k))
+                if n is not None:
+                    return n
+            for v in cur.values():
+                if isinstance(v, (dict, list)):
+                    stack.append(v)
+        elif isinstance(cur, list):
+            for v in cur:
+                if isinstance(v, (dict, list)):
+                    stack.append(v)
+    return None
+
+
 @router.get("/search")
 async def search_player(nickname: str):
     """ER GET /v1/user/nickname?query=닉네임 → 응답 user.userId 로 이후 전적 조회에 사용."""
@@ -201,9 +223,25 @@ async def get_player_games_by_user_id_route(
     games = data.get("userGames", []) or []
     if isinstance(games, list):
         _build_equipment_images_for_games(games)
+    ladder_rank: int | None = None
+    if cursor is None and isinstance(games, list) and len(games) > 0:
+        ranked_game = next((g for g in games if int((g or {}).get("matchingMode") or 0) == 3), None)
+        base_game = ranked_game or games[0]
+        try:
+            season_id = int((base_game or {}).get("seasonId") or 0)
+        except Exception:
+            season_id = 0
+        matching_mode = 3  # 래더 등수는 랭크(3) 기준
+        if season_id > 0 and matching_mode > 0:
+            try:
+                stats_data = await client.get_user_stats_by_user_id(uid, season_id, matching_mode)
+                ladder_rank = _extract_ladder_rank(stats_data)
+            except Exception:
+                ladder_rank = None
     result = {
         "games": games,
         "next": data.get("next"),
+        "ladderRank": ladder_rank,
     }
     try:
         await cache_set(cache_key, result, ttl=120)

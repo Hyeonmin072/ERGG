@@ -128,7 +128,7 @@ export default function PlayerPage() {
       // 최근 1판이 일반전이면 rankPoint가 0/미제공일 수 있어, 가장 최신 랭크전 값을 우선 사용한다.
       const latestRankedGame = recentGames.find((g) => g.matchingMode === 3);
       const rankPoint = latestRankedGame?.rankPoint ?? recentGames[0]?.rankPoint ?? 0;
-      const ladderRank = pickLadderRank(latestRankedGame);
+      const ladderRank = gamesData?.ladderRank ?? pickLadderRank(latestRankedGame);
       const tier = getTierFromRankOrRP(rankPoint, ladderRank);
 
       const octagonFromGames = computeOctagonFromUserGames(recentGames, {
@@ -142,6 +142,7 @@ export default function PlayerPage() {
         nickname: searchResult.nickname || nickname,
         accountLevel: recentGames[0]?.accountLevel ?? 0,
         rankPoint,
+        ladderRank,
         tier,
         lastSyncAt: new Date().toISOString(),
         stats: null,
@@ -221,7 +222,7 @@ export default function PlayerPage() {
   }
 
   const latestRankedGame = games.find((g) => g.matchingMode === 3);
-  const ladderRank = pickLadderRank(latestRankedGame);
+  const ladderRank = player.ladderRank ?? pickLadderRank(latestRankedGame);
   const tierColor = getTierColorFromRankOrRP(player.rankPoint, ladderRank);
   const tierImageSrc = getTierImageFromRankOrRP(player.rankPoint, ladderRank);
 
@@ -278,6 +279,14 @@ export default function PlayerPage() {
                 {player.rankPoint.toLocaleString()}
               </span>
               <span style={{ color: "var(--text-secondary)" }}>RP</span>
+              {ladderRank && (
+                <>
+                  <span style={{ color: "var(--text-secondary)" }}>·</span>
+                  <span style={{ color: "var(--text-secondary)" }}>
+                    #{ladderRank.toLocaleString()}위
+                  </span>
+                </>
+              )}
             </div>
 
             {/* 요약 통계 */}

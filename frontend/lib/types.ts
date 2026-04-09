@@ -375,6 +375,7 @@ export interface CharacterStat {
 export interface PlayerGamesResponse {
   games: UserGame[];
   next: string | null;   // cursor for next page
+  ladderRank?: number | null; // ER /v2/user/stats rank
 }
 
 /** /api/octagon/by-user-id */
@@ -402,6 +403,7 @@ export interface PlayerProfile {
   nickname: string;
   accountLevel: number;
   rankPoint: number;
+  ladderRank?: number | null;
   tier: string;
   lastSyncAt: string | null;
   stats: PlayerStats | null;
