@@ -53,6 +53,33 @@ export function formatDuration(seconds: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
+/**
+ * 게임 종료 시각(startDtm + duration) 기준 상대 시각 (한국어).
+ * 예: 방금, 3분 전, 5시간 전, 1일 전, 7일 전, 1년 전
+ */
+export function formatGameEndedRelativeKo(startDtm: string, durationSeconds: number): string {
+  const start = new Date(startDtm);
+  if (Number.isNaN(start.getTime())) return "";
+  const dur =
+    Number.isFinite(durationSeconds) && durationSeconds > 0 ? Math.floor(durationSeconds) : 0;
+  const endedAt = new Date(start.getTime() + dur * 1000);
+  return formatRelativePastKo(endedAt);
+}
+
+function formatRelativePastKo(date: Date, now: Date = new Date()): string {
+  const diffMs = now.getTime() - date.getTime();
+  if (diffMs < 0) return "방금";
+  const totalMin = Math.floor(diffMs / 60000);
+  if (totalMin < 1) return "방금";
+  const totalH = Math.floor(diffMs / 3600000);
+  if (totalH < 1) return `${totalMin}분 전`;
+  const totalD = Math.floor(diffMs / 86400000);
+  if (totalD < 1) return `${totalH}시간 전`;
+  if (totalD < 365) return `${totalD}일 전`;
+  const y = Math.floor(totalD / 365);
+  return y >= 1 ? `${y}년 전` : "1년 전";
+}
+
 /** 천 단위 콤마 (예: 10,000) */
 export function formatNumber(n: number): string {
   if (!Number.isFinite(n)) return "0";

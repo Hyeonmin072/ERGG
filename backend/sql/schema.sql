@@ -71,6 +71,36 @@ CREATE INDEX IF NOT EXISTS idx_item_image_override_type_code
     ON item_image_override (type, code);
 
 
+-- 전술 스킬 그룹 (ER TacticalSkillSetGroup.group = userGames.tacticalSkillGroup)
+CREATE TABLE IF NOT EXISTS tactical_skill_group (
+    code        BIGINT PRIMARY KEY,
+    name_kr     TEXT NOT NULL,
+    name_en     TEXT,
+    "modeType"  TEXT,
+    "icon"      TEXT,
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_tactical_skill_group_mode ON tactical_skill_group ("modeType");
+
+COMMENT ON TABLE tactical_skill_group IS 'ER TacticalSkillSetGroup — tacticalSkillGroup 코드별 표시명';
+
+-- 특성(Characteristic) 코드 마스터 (l10n Trait/Name/{code})
+CREATE TABLE IF NOT EXISTS trait (
+    code        BIGINT PRIMARY KEY,
+    name_kr     TEXT NOT NULL,
+    l10n_key    TEXT NOT NULL UNIQUE,
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE trait IS 'ER Trait 코드별 한국어 표시명 마스터';
+COMMENT ON COLUMN trait.code IS 'trait code (예: traitFirstCore, traitFirstSub, traitSecondSub)';
+COMMENT ON COLUMN trait.name_kr IS '한국어 이름 (l10n)';
+COMMENT ON COLUMN trait.l10n_key IS 'l10n key (Trait/Name/{code})';
+
+
 -- ============================================================
 -- 1. players (플레이어)
 -- ============================================================

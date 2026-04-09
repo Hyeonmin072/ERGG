@@ -2,7 +2,9 @@
 import Image from "next/image";
 import type { UserGame } from "@/lib/types";
 import {
-  formatDuration, formatNumber,
+  formatDuration,
+  formatGameEndedRelativeKo,
+  formatNumber,
   getMatchingModeLabel,
 } from "@/lib/mock";
 import { getCharacterDefaultMiniSrc } from "@/lib/characterDefaultMini";
@@ -12,6 +14,8 @@ import {
 } from "@/lib/characterDisplay";
 import { getEquipmentGradeBackground } from "@/lib/equipmentGradeStyle";
 import { getWeaponGroupIconPathFromItemKind } from "@/lib/weaponKindGroupIcon";
+import { getTacticalSkillImagePath, getTacticalSkillNameKr } from "@/lib/tacticalSkillImage";
+import { getTraitImagePath, getTraitNameKr } from "@/lib/traitImage";
 
 interface GameHistoryRowProps {
   game: UserGame;
@@ -59,6 +63,13 @@ const BADGE_TERMINATE = {
   color: "var(--text-primary)",
 } as const;
 
+/** 핵심 특성 — 살짝 큼 */
+const TRAIT_ICON_CORE =
+  "relative flex h-[28px] w-[28px] shrink-0 items-center justify-center overflow-hidden rounded-md border border-white/24 bg-black/38 p-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.07)]";
+/** 서브 특성 — 더 작게 */
+const TRAIT_ICON_SUB =
+  "relative flex h-[20px] w-[20px] shrink-0 items-center justify-center overflow-hidden rounded border border-white/18 bg-black/32 p-px shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]";
+
 /** 정수 통계 — 천 단위 콤마 */
 function fmtInt(n: number): string {
   if (!Number.isFinite(n)) return "0";
@@ -70,6 +81,20 @@ const LEVEL_CIRCLE_CHAR =
   "pointer-events-none absolute z-10 -bottom-1.5 -right-1.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-black text-[11px] font-bold tabular-nums text-white shadow-sm";
 const LEVEL_CIRCLE_WEAPON =
   "pointer-events-none absolute z-10 -bottom-2 -right-2 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-black/50 text-[8px] font-bold tabular-nums leading-none text-white/80 shadow-sm";
+
+/** 게임 결과 칭호 줄 — 추후 API·룰 기반으로 교체 */
+function dummyGameHonorLabels(game: UserGame): string[] {
+  const r = game.gameRank ?? 0;
+  if (r === 1) return ["『 리허설 1위 』", "전설 입문 (임시)"];
+  if (game.victory === 1) return ["『 연승 각 』 (임시)"];
+  return ["『 출첵 』 (임시)", "복습 권장 (임시)"];
+}
+
+const HONOR_BADGE = {
+  backgroundColor: "rgba(99, 102, 241, 0.12)",
+  color: "rgba(199, 210, 254, 0.95)",
+  border: "1px solid rgba(129, 140, 248, 0.28)",
+} as const;
 
 export default function GameHistoryRow({ game, catalog, onSelect }: GameHistoryRowProps) {
   const isWin = game.victory === 1 || game.gameRank === 1;
@@ -122,6 +147,21 @@ export default function GameHistoryRow({ game, catalog, onSelect }: GameHistoryR
   /** ER: matchingMode 3 = 랭크 — RP·MMR 등락은 랭크만 표시 */
   const isRanked = game.matchingMode === 3;
 
+  const traitCore = game.traitFirstCore ?? 0;
+  const traitFirstSub = Array.isArray(game.traitFirstSub) ? game.traitFirstSub : [];
+  const traitSecondSub = Array.isArray(game.traitSecondSub) ? game.traitSecondSub : [];
+  const hasTraitRow =
+    (Number.isFinite(traitCore) && traitCore > 0) ||
+    traitFirstSub.length > 0 ||
+    traitSecondSub.length > 0;
+
+  const tacticalImgPath = getTacticalSkillImagePath(game.tacticalSkillGroup);
+  const tacticalNameKr = getTacticalSkillNameKr(game.tacticalSkillGroup);
+  const endOffsetSec =
+    game.duration > 0 ? game.duration : game.playTime > 0 ? game.playTime : 0;
+  const gameEndedRelativeKo = formatGameEndedRelativeKo(game.startDtm, endOffsetSec);
+  const traitCoreCode = Number(traitCore);
+
   return (
     <div
       role={onSelect ? "button" : undefined}
@@ -137,7 +177,7 @@ export default function GameHistoryRow({ game, catalog, onSelect }: GameHistoryR
             }
           : undefined
       }
-      className={`card-hover rounded-lg px-4 py-4 flex items-center gap-4 text-base min-h-[6rem] ${
+      className={`card-hover rounded-lg px-4 py-3 flex min-h-[5.5rem] flex-col gap-2 text-base ${
         isFirst ? "rank-first-shimmer" : ""
       } ${onSelect ? "cursor-pointer" : ""}`}
       style={{
@@ -146,6 +186,7 @@ export default function GameHistoryRow({ game, catalog, onSelect }: GameHistoryR
         boxShadow: ROW_SHADOW,
       }}
     >
+      <div className="flex w-full min-w-0 flex-1 items-center gap-3">
       {/* 승패 + 순위 + 시간 */}
       <div className="shrink-0 flex flex-col items-center w-14">
         <span
@@ -170,10 +211,19 @@ export default function GameHistoryRow({ game, catalog, onSelect }: GameHistoryR
         <span className="mt-0.5 rounded px-1.5 py-0.5 text-[11px] font-semibold" style={BADGE_SURFACE}>
           {matchingModeLabel}
         </span>
+        {gameEndedRelativeKo ? (
+          <span
+            className="mt-1 max-w-[4.5rem] text-center text-[10px] leading-tight"
+            style={{ color: "var(--text-secondary)" }}
+            title={`종료 시각 기준 · ${game.startDtm}${endOffsetSec ? ` + ${endOffsetSec}s` : ""}`}
+          >
+            {gameEndedRelativeKo}
+          </span>
+        ) : null}
       </div>
 
-      {/* 캐릭터 + 무기 — 세로 기준 서로 중앙 정렬 */}
-      <div className="flex shrink-0 items-center gap-2">
+      {/* 캐릭터 + 무기·전술 + 특성(옆줄, 카드 높이 증가 없음) */}
+      <div className="flex min-w-0 shrink-0 items-start gap-2">
         <div className="flex w-[60px] shrink-0 flex-col items-center">
           <div className="relative h-[60px] w-[60px] shrink-0">
             <div
@@ -198,34 +248,159 @@ export default function GameHistoryRow({ game, catalog, onSelect }: GameHistoryR
             </span>
           </div>
           <span
-            className="mt-0.5 w-[60px] truncate text-center text-sm leading-tight"
+            className="mt-0.5 w-[60px] truncate text-center text-[13px] leading-tight"
             style={{ color: "var(--text-secondary)" }}
             title={charName}
           >
             {charName}
           </span>
         </div>
-        {weaponGroupPath && (
-          <div className="relative h-[30px] w-[30px] shrink-0">
-            <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-lg bg-black/20 p-0.5">
-              <img
-                src={encodeURI(weaponGroupPath)}
-                alt={weaponSlotMeta?.nameKr ?? "무기 종류"}
-                className="h-full w-full object-contain"
-              />
+        <div className="flex min-w-0 items-center gap-1.5">
+          <div className="flex shrink-0 flex-col items-center gap-1">
+            {weaponGroupPath && (
+              <div className="relative h-[30px] w-[30px] shrink-0">
+                <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-lg border border-white/25 bg-black/35 p-0.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                  <img
+                    src={encodeURI(weaponGroupPath)}
+                    alt={weaponSlotMeta?.nameKr ?? "무기 종류"}
+                    className="h-full w-full rounded-[3px] object-contain"
+                  />
+                </div>
+                <span
+                  className={LEVEL_CIRCLE_WEAPON}
+                  title={`무기 레벨 ${game.bestWeaponLevel}`}
+                  style={{
+                    WebkitTextStroke: "0.35px rgba(255, 255, 255, 0.85)",
+                    paintOrder: "stroke fill",
+                  }}
+                >
+                  {game.bestWeaponLevel}
+                </span>
+              </div>
+            )}
+            {/* 전술 스킬 — 무기 종류 바로 아래 30×30 (이미지: public/images/tacticalSkill/{한글명}.webp) */}
+            <div className="relative h-[30px] w-[30px] shrink-0">
+              <div
+                className="flex h-full w-full items-center justify-center overflow-hidden rounded-lg border border-white/25 bg-black/35 p-0.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+                title={
+                  tacticalNameKr
+                    ? `${tacticalNameKr} · Lv.${game.tacticalSkillLevel} (#${game.tacticalSkillGroup})`
+                    : `전술 스킬 그룹 ${game.tacticalSkillGroup}`
+                }
+              >
+                {tacticalImgPath ? (
+                  <img
+                    src={encodeURI(tacticalImgPath)}
+                    alt={tacticalNameKr ?? "전술 스킬"}
+                    className="h-full w-full rounded-[3px] object-cover"
+                  />
+                ) : (
+                  <span className="text-[10px] font-bold tabular-nums leading-none text-white/90">
+                    {game.tacticalSkillGroup}
+                  </span>
+                )}
+              </div>
+              <span
+                className={LEVEL_CIRCLE_WEAPON}
+                title={`전술 스킬 레벨 ${game.tacticalSkillLevel}`}
+                style={{
+                  WebkitTextStroke: "0.35px rgba(255, 255, 255, 0.85)",
+                  paintOrder: "stroke fill",
+                }}
+              >
+                {game.tacticalSkillLevel}
+              </span>
             </div>
-            <span
-              className={LEVEL_CIRCLE_WEAPON}
-              title={`무기 레벨 ${game.bestWeaponLevel}`}
-              style={{
-                WebkitTextStroke: "0.35px rgba(255, 255, 255, 0.85)",
-                paintOrder: "stroke fill",
-              }}
-            >
-              {game.bestWeaponLevel}
-            </span>
           </div>
-        )}
+          {hasTraitRow && (
+            <div
+              className="flex w-11 shrink-0 translate-x-[2px] flex-col items-center justify-center gap-0.5 leading-none"
+              aria-label="특성"
+              title="특성"
+            >
+              {/* 핵심(큼) / 서브1×2 / 서브2×2 — 동일 기준선(w-11) 안에서 가운데 정렬 */}
+              {traitCore > 0 && (
+                <div className="flex w-full items-center justify-center">
+                  <div
+                    className={TRAIT_ICON_CORE}
+                    title={getTraitNameKr(traitCoreCode) ?? String(traitCoreCode)}
+                    aria-label={`핵심 특성 ${getTraitNameKr(traitCoreCode) ?? traitCoreCode}`}
+                  >
+                    {getTraitImagePath(traitCoreCode) ? (
+                      <img
+                        src={encodeURI(getTraitImagePath(traitCoreCode) as string)}
+                        alt={getTraitNameKr(traitCoreCode) ?? "핵심 특성"}
+                        className="h-full w-full rounded-[4px] object-cover"
+                      />
+                    ) : (
+                      <span className="text-[10px] font-bold tabular-nums leading-none text-white/90">
+                        {traitCoreCode}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+              {traitFirstSub.length > 0 && (
+                <div className="flex w-full items-center justify-center gap-0.5">
+                  {traitFirstSub.map((id) => {
+                    const code = Number(id);
+                    const name = getTraitNameKr(code);
+                    const imgPath = getTraitImagePath(code);
+                    return (
+                      <div
+                        key={`s1-${id}`}
+                        className={TRAIT_ICON_SUB}
+                        title={name ?? String(id)}
+                        aria-label={`서브 특성 1 · ${name ?? id}`}
+                      >
+                        {imgPath ? (
+                          <img
+                            src={encodeURI(imgPath)}
+                            alt={name ?? "서브 특성"}
+                            className="h-full w-full rounded-[3px] object-cover"
+                          />
+                        ) : (
+                          <span className="text-[8px] font-bold tabular-nums leading-none text-white/90">
+                            {id}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {traitSecondSub.length > 0 && (
+                <div className="flex w-full items-center justify-center gap-0.5">
+                  {traitSecondSub.map((id) => {
+                    const code = Number(id);
+                    const name = getTraitNameKr(code);
+                    const imgPath = getTraitImagePath(code);
+                    return (
+                      <div
+                        key={`s2-${id}`}
+                        className={TRAIT_ICON_SUB}
+                        title={name ?? String(id)}
+                        aria-label={`서브 특성 2 · ${name ?? id}`}
+                      >
+                        {imgPath ? (
+                          <img
+                            src={encodeURI(imgPath)}
+                            alt={name ?? "서브 특성"}
+                            className="h-full w-full rounded-[3px] object-cover"
+                          />
+                        ) : (
+                          <span className="text-[8px] font-bold tabular-nums leading-none text-white/90">
+                            {id}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* TK / K / A / D + 터미네이트 뱃지 */}
@@ -280,86 +455,115 @@ export default function GameHistoryRow({ game, catalog, onSelect }: GameHistoryR
         )}
       </div>
 
-      {/* 딜량 */}
-      <div className="flex w-[5.5rem] shrink-0 flex-col items-center">
-        <span className="font-bold tabular-nums" style={{ color: STAT_NUM }}>
-          {formatNumber(game.damageToPlayer)}
-        </span>
-        <span className="text-sm" style={{ color: "var(--text-secondary)" }}>딜량</span>
-      </div>
-
-      {/* 회복 + 랭크 시 RP·MMR (lg 이상, 나란히) */}
-      <div className="hidden shrink-0 items-center gap-3 lg:flex">
-        <div className="flex w-[4.5rem] shrink-0 flex-col items-center">
+      {/* 딜량 · 루트 · RP(MMR 등락) — 동일 너비·정렬(숫자 위 / 라벨 아래) */}
+      <div className="flex shrink-0 items-stretch gap-1 sm:gap-2">
+        <div className="flex w-[5.5rem] shrink-0 flex-col items-center">
           <span className="font-bold tabular-nums" style={{ color: STAT_NUM }}>
-            {formatNumber(game.healAmount)}
+            {formatNumber(game.damageToPlayer)}
           </span>
-          <span className="text-sm" style={{ color: "var(--text-secondary)" }}>회복</span>
+          <span className="text-sm" style={{ color: "var(--text-secondary)" }}>딜량</span>
         </div>
-        {isRanked && (
-          <div className="flex shrink-0 flex-col items-center justify-center gap-0.5 border-l border-white/15 pl-3">
-            <span
-              className="text-base font-bold tabular-nums"
-              style={{
-                color:
-                  game.mmrGain >= 0 ? "rgba(167, 243, 208, 0.95)" : "rgba(248, 180, 180, 0.9)",
-              }}
-            >
-              {game.mmrGain >= 0 ? "+" : ""}
-              {game.mmrGain}
-            </span>
-            <span className="text-sm" style={{ color: "var(--text-secondary)" }}>
-              {game.rankPoint.toLocaleString()} RP
-            </span>
-          </div>
-        )}
+        <div className="flex w-[5.5rem] shrink-0 flex-col items-center">
+          <span
+            className="font-bold tabular-nums"
+            style={{ color: STAT_NUM }}
+            title={`routeIdOfStart ${game.routeIdOfStart}`}
+          >
+            {Number.isFinite(game.routeIdOfStart) ? Math.trunc(game.routeIdOfStart) : "—"}
+          </span>
+          <span className="text-sm" style={{ color: "var(--text-secondary)" }}>루트</span>
+        </div>
+        <div className="flex w-[5.5rem] shrink-0 flex-col items-center">
+          {isRanked ? (
+            <>
+              <span
+                className="font-bold tabular-nums"
+                style={{
+                  color:
+                    game.mmrGain >= 0 ? "rgba(167, 243, 208, 0.95)" : "rgba(248, 180, 180, 0.9)",
+                }}
+              >
+                {game.mmrGain >= 0 ? "+" : ""}
+                {game.mmrGain}
+              </span>
+              <span className="text-sm" style={{ color: "var(--text-secondary)" }}>RP</span>
+            </>
+          ) : (
+            <>
+              <span className="font-bold tabular-nums" style={{ color: STAT_NUM }}>
+                —
+              </span>
+              <span className="text-sm" style={{ color: "var(--text-secondary)" }}>RP</span>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* 장비 아이콘 (우측) */}
-      <div className="ml-auto flex flex-col items-end justify-center shrink-0">
-        {armorIcons.length > 0 && (
-          <div className="mb-1 flex w-[6rem] flex-col gap-y-1.5">
-            {weaponCell && (
-              <div className="flex w-full justify-center">
-                <div
-                  className="h-7 w-11 shrink-0 overflow-hidden rounded border border-white/28 p-[2px] shadow-[0_2px_8px_rgba(0,0,0,0.55),0_1px_2px_rgba(0,0,0,0.35)]"
-                  style={{ background: getEquipmentGradeBackground(weaponCell.grade) }}
-                >
-                  <img
-                    src={encodeURI(weaponCell.imagePath)}
-                    alt={`equipment-${weaponCell.code}`}
-                    className="h-full w-full rounded-[3px] object-cover object-center"
-                  />
-                </div>
-              </div>
-            )}
-            {hasArmorSlot && (
-              <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 place-items-center">
-                {armorQuad.map((it, idx) =>
-                  it ? (
-                    <div
-                      key={`${game.gameId}-${it.slot}-${it.code}`}
-                      className="h-7 w-11 shrink-0 overflow-hidden rounded border border-white/28 p-[2px] shadow-[0_2px_8px_rgba(0,0,0,0.55),0_1px_2px_rgba(0,0,0,0.35)]"
-                      style={{ background: getEquipmentGradeBackground(it.grade) }}
-                    >
-                      <img
-                        src={encodeURI(it.imagePath)}
-                        alt={`equipment-${it.code}`}
-                        className="h-full w-full rounded-[3px] object-cover object-center"
-                      />
-                    </div>
-                  ) : (
-                    <div
-                      key={`${game.gameId}-armor-empty-${idx}`}
-                      className="h-7 w-11 shrink-0"
-                      aria-hidden
+      {/* 장비 — 우측 */}
+      <div className="ml-auto flex min-w-0 shrink-0 flex-col items-end justify-center pl-3 lg:pl-5">
+        <div className="flex flex-col items-end justify-center shrink-0 pl-1">
+          {armorIcons.length > 0 && (
+            <div className="flex w-[6rem] flex-col gap-y-1.5">
+              {weaponCell && (
+                <div className="flex w-full justify-center">
+                  <div
+                    className="h-7 w-11 shrink-0 overflow-hidden rounded border border-white/28 p-[2px] shadow-[0_2px_8px_rgba(0,0,0,0.55),0_1px_2px_rgba(0,0,0,0.35)]"
+                    style={{ background: getEquipmentGradeBackground(weaponCell.grade) }}
+                  >
+                    <img
+                      src={encodeURI(weaponCell.imagePath)}
+                      alt={`equipment-${weaponCell.code}`}
+                      className="h-full w-full rounded-[3px] object-cover object-center"
                     />
-                  ),
-                )}
-              </div>
-            )}
-          </div>
-        )}
+                  </div>
+                </div>
+              )}
+              {hasArmorSlot && (
+                <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 place-items-center">
+                  {armorQuad.map((it, idx) =>
+                    it ? (
+                      <div
+                        key={`${game.gameId}-${it.slot}-${it.code}`}
+                        className="h-7 w-11 shrink-0 overflow-hidden rounded border border-white/28 p-[2px] shadow-[0_2px_8px_rgba(0,0,0,0.55),0_1px_2px_rgba(0,0,0,0.35)]"
+                        style={{ background: getEquipmentGradeBackground(it.grade) }}
+                      >
+                        <img
+                          src={encodeURI(it.imagePath)}
+                          alt={`equipment-${it.code}`}
+                          className="h-full w-full rounded-[3px] object-cover object-center"
+                        />
+                      </div>
+                    ) : (
+                      <div
+                        key={`${game.gameId}-armor-empty-${idx}`}
+                        className="h-7 w-11 shrink-0"
+                        aria-hidden
+                      />
+                    ),
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+      </div>
+
+      {/* 게임별 결과 칭호 (추후 실데이터) — 더미 */}
+      <div
+        className="flex w-full min-w-0 flex-wrap items-center gap-1.5 border-t border-white/10 pt-2"
+        aria-label="게임 칭호 (임시 더미)"
+      >
+        {dummyGameHonorLabels(game).map((label, i) => (
+          <span
+            key={`${game.gameId}-honor-dummy-${i}`}
+            className="inline-flex max-w-full items-center truncate rounded-md px-2 py-0.5 text-[11px] font-medium leading-tight"
+            style={HONOR_BADGE}
+            title={label}
+          >
+            {label}
+          </span>
+        ))}
       </div>
     </div>
   );
