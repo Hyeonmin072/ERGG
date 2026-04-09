@@ -70,6 +70,13 @@ const TRAIT_ICON_CORE =
 const TRAIT_ICON_SUB =
   "relative flex h-[20px] w-[20px] shrink-0 items-center justify-center overflow-hidden rounded border border-white/18 bg-black/32 p-px shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]";
 
+type EquipmentIcon = {
+  slot: number;
+  code: number;
+  imagePath: string;
+  grade: number | undefined;
+};
+
 /** 정수 통계 — 천 단위 콤마 */
 function fmtInt(n: number): string {
   if (!Number.isFinite(n)) return "0";
@@ -107,7 +114,7 @@ function gameHonorLabels(game: UserGame): HonorBadge[] {
   }
 
   const monitoringCount =
-    (game.useReconDrone ?? 0) + (game.useEmpDrone ?? 0) + (game.addTelephotoCamera ?? 0);
+    Number(raw.useReconDrone ?? 0) + Number(raw.useEmpDrone ?? 0) + (game.addTelephotoCamera ?? 0);
   if (monitoringCount >= 20) {
     labels.push({
       label: "모니터링",
@@ -161,7 +168,7 @@ export default function GameHistoryRow({ game, catalog, onSelect }: GameHistoryR
     const n = typeof raw === "number" ? raw : Number(raw);
     return Number.isFinite(n) ? n : undefined;
   };
-  const armorIcons = (equipmentRaw && typeof equipmentRaw === "object" && !Array.isArray(equipmentRaw))
+  const armorIcons: EquipmentIcon[] = (equipmentRaw && typeof equipmentRaw === "object" && !Array.isArray(equipmentRaw))
     ? [0, 1, 2, 3, 4]
         .map((slot) => {
           const grade = slotGrade(slot);
@@ -177,7 +184,7 @@ export default function GameHistoryRow({ game, catalog, onSelect }: GameHistoryR
           const imagePath = dbSlotPath ?? null;
           return imagePath ? { slot, code, imagePath, grade } : null;
         })
-        .filter((x): x is { slot: number; code: number; imagePath: string; grade?: number } => Boolean(x))
+        .filter((x): x is EquipmentIcon => x !== null)
     : [];
 
   /** 슬롯: 0 무기(윗줄 가운데) · 1~4 방어구 2×2(옷·모자 / 팔·다리) */
