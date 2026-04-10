@@ -8,8 +8,8 @@
 !.gitignore
 !*/
 !.claude/
-/docker-compose.yml
-!docker-compose.ymld
+!docker-compose.yml
+!package-lock.json
 
 
 # ── 환경 변수 (절대 커밋 금지) ───────────────────────────────
