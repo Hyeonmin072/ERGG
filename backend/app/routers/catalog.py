@@ -17,6 +17,26 @@ def _pick(r: dict, *keys: str):
     return None
 
 
+def _fetch_character_rows():
+    """
+    character 테이블 컬럼명이 환경마다 camelCase/snake_case로 달라질 수 있어
+    camelCase 우선 조회 후 실패 시 snake_case로 재시도한다.
+    """
+    sb = get_supabase_client()
+
+    try:
+        resp = sb.table("character").select("*").order("characterNum").execute()
+        return resp.data or []
+    except Exception as first_err:
+        try:
+            resp = sb.table("character").select("*").order("character_num").execute()
+            return resp.data or []
+        except Exception as second_err:
+            raise RuntimeError(
+                f"characterNum 정렬 실패: {first_err} | character_num 정렬 실패: {second_err}"
+            ) from second_err
+
+
 @router.get("/characters")
 async def list_characters():
     """
@@ -32,14 +52,7 @@ async def list_characters():
         pass
 
     try:
-        sb = get_supabase_client()
-        resp = (
-            sb.table("character")
-            .select("characterNum,name,nameKo,nameEn,weaponType,weaponCode,masteryWeaponCodes")
-            .order("characterNum")
-            .execute()
-        )
-        rows = resp.data or []
+        rows = _fetch_character_rows()
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"character 테이블 조회 실패: {e}")
 
@@ -54,11 +67,15 @@ async def list_characters():
                 {
                     "characterNum": int(cn),
                     "name": (r.get("name") or "") or "",
-                    "nameKo": _pick(r, "nameKo"),
-                    "nameEn": _pick(r, "nameEn"),
-                    "weaponType": _pick(r, "weaponType"),
-                    "weaponCode": _pick(r, "weaponCode"),
-                    "masteryWeaponCodes": list(mwc) if isinstance(mwc, list) else [],
+                    "nameKo": _pick(r, "nameKo", "name_ko"),
+                    "nameEn": _pick(r, "nameEn", "name_en"),
+                    "weaponType": _pick(r, "weaponType", "weapon_type"),
+                    "weaponCode": _pick(r, "weaponCode", "weapon_code"),
+                    "masteryWeaponCodes": (
+                        list(mwc)
+                        if isinstance(mwc, list)
+                        else list(_pick(r, "mastery_weapon_codes") or [])
+                    ),
                 }
             )
         except (TypeError, ValueError):
