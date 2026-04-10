@@ -14,7 +14,14 @@ from typing import TYPE_CHECKING, Optional
 if TYPE_CHECKING:
     import numpy as np
 
-_BACKEND_ROOT = Path(__file__).resolve().parent.parent.parent
+def _backend_root() -> Path:
+    override = (os.getenv("ERG_BACKEND_ROOT") or "").strip()
+    if override:
+        return Path(override).resolve()
+    return Path(__file__).resolve().parent.parent.parent
+
+
+_BACKEND_ROOT = _backend_root()
 _MODEL = None  # type: ignore[assignment]
 
 

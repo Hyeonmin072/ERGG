@@ -1,9 +1,19 @@
+import os
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# config.py 위치: backend/app/core/config.py → backend 루트 (cwd와 무관하게 .env 로드)
-_BACKEND_ROOT = Path(__file__).resolve().parent.parent.parent
+
+def _resolve_backend_root() -> Path:
+    # PyInstaller 등으로 묶을 때 __file__ 기준이 달라질 수 있어 런처가 설정
+    override = os.environ.get("ERG_BACKEND_ROOT", "").strip()
+    if override:
+        return Path(override).resolve()
+    # 기본: backend/app/core/config.py → backend 루트
+    return Path(__file__).resolve().parent.parent.parent
+
+
+_BACKEND_ROOT = _resolve_backend_root()
 # 둘 다 있으면 뒤쪽(backend/.env)이 우선(덮어씀)
 _ENV_CANDIDATES = (
     _BACKEND_ROOT.parent / ".env",
