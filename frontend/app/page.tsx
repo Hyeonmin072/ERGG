@@ -146,7 +146,7 @@ export default function HomePage() {
                 boxShadow: query.trim() ? "0 10px 28px rgba(0,0,0,0.35)" : "none",
               }}
             >
-              검색
+              전적 검색
             </button>
           </div>
         </form>

@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Search, Target, LineChart, UsersRound, PieChart } from "lucide-react";
+import { Search, LineChart, UsersRound, PieChart } from "lucide-react";
 
 export default function Navbar() {
   const router = useRouter();
@@ -58,17 +58,6 @@ export default function Navbar() {
 
         {/* Nav links */}
         <div className="flex items-center gap-0.5 sm:gap-1 ml-auto flex-wrap justify-end">
-          <Link
-            href="/ai/defeat"
-            className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-white/5"
-            style={{
-              color: "var(--text-secondary)",
-              border: "1px solid transparent",
-            }}
-          >
-            <Target size={13} style={{ color: "#f87171" }} />
-            <span className="hidden sm:inline">패배 분석</span>
-          </Link>
           <Link
             href="/ai/personal"
             className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-white/5"

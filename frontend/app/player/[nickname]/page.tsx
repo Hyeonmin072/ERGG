@@ -25,7 +25,7 @@ import {
   ApiError,
 } from "@/lib/api";
 import type { PlayerProfile, UserGame } from "@/lib/types";
-import { RefreshCw, ChevronRight, Trophy, Sword, Target, Clock, AlertCircle } from "lucide-react";
+import { RefreshCw, Trophy, Sword, Target, Clock, AlertCircle } from "lucide-react";
 
 // ── 개발 환경 목 모드 ─────────────────────────────────────────
 const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "true";
@@ -307,37 +307,28 @@ export default function PlayerPage() {
             </div>
           </div>
 
-          {/* 갱신 + 패배 분석 */}
-          <div className="flex flex-col items-end gap-2 shrink-0">
+          {/* 전적 갱신 (ER 최신 데이터) */}
+          <div className="flex flex-col items-end shrink-0">
             <button
+              type="button"
               onClick={handleRefresh}
               disabled={refreshing}
-              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 text-sm font-bold px-4 py-2.5 rounded-xl transition-all disabled:opacity-55 disabled:cursor-not-allowed"
               style={{
-                backgroundColor: "rgba(20,29,53,0.55)",
-                color: "var(--text-secondary)",
-                border: "1px solid rgba(255,255,255,0.10)",
+                background: refreshing
+                  ? "linear-gradient(135deg, rgba(148,163,184,0.35), rgba(71,85,105,0.45))"
+                  : "linear-gradient(135deg, rgba(0,255,136,0.42), rgba(255,255,255,0.88))",
+                color: refreshing ? "rgba(226,232,240,0.9)" : "rgba(10,14,26,0.95)",
+                border: "1px solid rgba(255,255,255,0.22)",
+                boxShadow: refreshing
+                  ? "0 8px 24px rgba(0,0,0,0.25)"
+                  : "0 0 0 1px rgba(0,255,136,0.15), 0 12px 36px rgba(0,255,136,0.18), 0 18px 48px rgba(0,0,0,0.35)",
                 backdropFilter: "blur(8px)",
               }}
             >
-              <RefreshCw size={12} className={refreshing ? "animate-spin" : ""} />
-              {refreshing ? "갱신 중..." : "갱신"}
+              <RefreshCw size={16} className={refreshing ? "animate-spin shrink-0" : "shrink-0"} />
+              {refreshing ? "갱신 중..." : "전적 갱신"}
             </button>
-            {player.userId && (
-            <Link
-              href={`/ai/defeat?userId=${encodeURIComponent(player.userId)}`}
-              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-bold transition-all"
-              style={{
-                background: "linear-gradient(135deg, rgba(248,113,113,0.35), rgba(255,255,255,0.78))",
-                color: "rgba(10,14,26,0.95)",
-                border: "1px solid rgba(255,255,255,0.18)",
-                boxShadow: "0 18px 55px rgba(0,0,0,0.34)",
-              }}
-            >
-              AI 패배 원인 분석
-              <ChevronRight size={11} />
-            </Link>
-            )}
           </div>
         </div>
       </div>
