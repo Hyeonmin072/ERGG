@@ -8,6 +8,7 @@
 !.gitignore
 !*/
 !.claude/
+!docker-compose.yml
 
 
 # ── 환경 변수 (절대 커밋 금지) ───────────────────────────────
