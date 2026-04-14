@@ -4,6 +4,7 @@ import logging
 from typing import Any, Optional
 
 import httpx
+import datetime
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from ..clients.er_api_client import get_er_client
 from ..clients.supabase_client import get_supabase_client
@@ -42,7 +43,7 @@ def _to_int(v: object) -> int | None:
 
 
 def _utc_now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 
 def _build_equipment_images_for_games(games: list[dict]) -> None:

@@ -333,7 +333,7 @@ export default function PlayerPage() {
             <button
               type="button"
               onClick={handleRefresh}
-              disabled={refreshing || !hasSyncTimestamp}
+              disabled={refreshing || syncLabel === "최근 갱신"}
               className="flex items-center gap-2 text-sm font-bold px-4 py-2.5 rounded-xl transition-all disabled:opacity-55 disabled:cursor-not-allowed"
               style={{
                 background: refreshing
