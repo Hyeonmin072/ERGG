@@ -23,6 +23,7 @@ async def _persist_search_rank_games(user_id: str, limit: int) -> None:
             limit=limit,
             touch_in1000_fields=False,
         )
+        await cache_delete_pattern("stats:characters:*")
     except httpx.HTTPStatusError as e:
         if e.response is not None and e.response.status_code == 429:
             _log.warning("Background persist skipped by ER rate limit userId=%s", user_id)
@@ -297,6 +298,7 @@ async def refresh_player_by_user_id(userId: str):
         raise HTTPException(status_code=400, detail="userId가 필요합니다.")
     await cache_delete_pattern(f"player:games:uid:{uid}*")
     await cache_delete_pattern(f"octagon:uid:{uid}*")
+    await cache_delete_pattern("stats:characters:*")
     return {"message": "캐시가 초기화되었습니다. 다음 조회 시 최신 데이터가 반영됩니다."}
 
 
@@ -304,10 +306,12 @@ async def refresh_player_by_user_id(userId: str):
 async def sync_player_games_by_user_id(userId: str, limit: int = 20):
     """Upsert rank games (limit) for userId. Does not modify is_in1000 / in1000_sync_at."""
     try:
-        return await sync_user_games_by_user_id_to_supabase(
+        res = await sync_user_games_by_user_id_to_supabase(
             user_id=userId,
             limit=limit,
             touch_in1000_fields=False,
         )
+        await cache_delete_pattern("stats:characters:*")
+        return res
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"userId 동기화 실패: {e}")
