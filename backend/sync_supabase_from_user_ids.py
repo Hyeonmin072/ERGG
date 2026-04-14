@@ -33,10 +33,18 @@ async def main() -> None:
     load_dotenv(Path(__file__).resolve().parent / ".env")
     # .env 로딩 이후 import 해야 settings가 올바른 값을 읽는다.
     from app.services.supabase_sync_service import sync_user_games_by_user_id_to_supabase
+    from app.clients.supabase_client import get_supabase_client
 
     user_ids = load_user_ids(INPUT_CSV, MAX_USERS)
     if not user_ids:
         raise RuntimeError(f"userId가 없습니다: {INPUT_CSV}")
+
+    # sync 시작 전: 기존 isIn1000 전체 초기화
+    # → 오늘 sync된 유저만 isIn1000=true가 되도록 보장
+    print("[init] isIn1000 전체 초기화 중...")
+    sb = get_supabase_client()
+    sb.table("players").update({"is_in1000": False}).neq("user_id", "").execute()
+    print("[init] 초기화 완료")
 
     total_saved = 0
     total_users_ok = 0
@@ -47,6 +55,7 @@ async def main() -> None:
             res = await sync_user_games_by_user_id_to_supabase(
                 user_id=user_id,
                 limit=GAMES_PER_USER,
+                is_in1000=True,
             )
             saved = int(res.get("saved", 0))
             total_saved += saved

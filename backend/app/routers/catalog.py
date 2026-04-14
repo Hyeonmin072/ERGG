@@ -37,6 +37,51 @@ def _fetch_character_rows():
             ) from second_err
 
 
+@router.get("/weapons")
+async def list_weapons():
+    """
+    Supabase `weapon` 테이블 — id는 best_weapon(WeaponTypeInfo 1-based) 코드와 동일.
+    UI 아이콘·툴팁용 한글/영문 이름.
+    """
+    cache_key = "catalog:weapons:v1"
+    try:
+        cached = await cache_get(cache_key)
+        if cached:
+            return cached
+    except Exception:
+        pass
+
+    sb = get_supabase_client()
+    try:
+        resp = sb.table("weapon").select("id,name,nameEn").order("id").execute()
+        rows = resp.data or []
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"weapon 테이블 조회 실패: {e}") from e
+
+    items: list[dict] = []
+    for r in rows:
+        try:
+            wid = _pick(r, "id")
+            if wid is None:
+                continue
+            items.append(
+                {
+                    "code": int(wid),
+                    "name": (r.get("name") or "") or "",
+                    "nameEn": _pick(r, "nameEn", "name_en"),
+                }
+            )
+        except (TypeError, ValueError):
+            continue
+
+    out = {"items": items}
+    try:
+        await cache_set(cache_key, out, ttl=3600)
+    except Exception:
+        pass
+    return out
+
+
 @router.get("/characters")
 async def list_characters():
     """

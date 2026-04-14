@@ -451,6 +451,17 @@ export interface CharacterCatalogResponse {
   items: CharacterCatalogItem[];
 }
 
+/** GET /api/v1/catalog/weapons — Supabase weapon 테이블 */
+export interface WeaponCatalogItem {
+  code: number;
+  name: string;
+  nameEn: string | null;
+}
+
+export interface WeaponCatalogResponse {
+  items: WeaponCatalogItem[];
+}
+
 /** POST /api/v1/ai/combo-win-probability */
 export interface ComboWinProbabilityRequest {
   characterNums: [number, number, number];

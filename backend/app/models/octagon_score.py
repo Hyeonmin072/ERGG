@@ -11,11 +11,14 @@ class OctagonScore(Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     user_id: Mapped[str] = mapped_column(
-        "userId", String(200), ForeignKey('players."userId"'), nullable=False, index=True
+        "user_id",
+        String(200),
+        ForeignKey("players.user_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
-    user_num: Mapped[int | None] = mapped_column("userNum", BigInteger, nullable=True, index=True)
-    season_id: Mapped[int] = mapped_column("seasonId", Integer, nullable=False)
-    matching_mode: Mapped[int] = mapped_column("matchingMode", Integer, nullable=False)
+    season_id: Mapped[int] = mapped_column("season_id", Integer, nullable=False)
+    matching_mode: Mapped[int] = mapped_column("matching_mode", Integer, nullable=False)
 
     combat_score: Mapped[float] = mapped_column("combatScore", Numeric(6, 3), default=0)
     takedown_score: Mapped[float] = mapped_column("takedownScore", Numeric(6, 3), default=0)

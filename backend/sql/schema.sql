@@ -132,6 +132,8 @@ CREATE TABLE IF NOT EXISTS games (
     "versionMinor"               SMALLINT    DEFAULT 0,
     "gameVersion"                VARCHAR(20) GENERATED ALWAYS AS
                                 ("versionMajor"::TEXT || '.' || "versionMinor"::TEXT) STORED,
+    "fullVersion"                VARCHAR(30) GENERATED ALWAYS AS
+                                ("seasonId"::TEXT || '.' || "versionMajor"::TEXT || '.' || "versionMinor"::TEXT) STORED,
     "startDtm"                   TIMESTAMPTZ NOT NULL,
     duration                     INTEGER     DEFAULT 0,  -- 게임 전체 지속 시간(초)
     "matchSize"                  SMALLINT    DEFAULT 24, -- 총 참여 인원
@@ -146,6 +148,7 @@ CREATE TABLE IF NOT EXISTS games (
 CREATE INDEX IF NOT EXISTS idx_games_season        ON games ("seasonId");
 CREATE INDEX IF NOT EXISTS idx_games_matching_mode ON games ("matchingMode");
 CREATE INDEX IF NOT EXISTS idx_games_start_dtm     ON games ("startDtm" DESC);
+CREATE INDEX IF NOT EXISTS idx_games_full_version  ON games ("fullVersion");
 
 
 -- ============================================================

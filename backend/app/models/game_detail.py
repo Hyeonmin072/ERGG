@@ -15,22 +15,21 @@ class GameDetail(Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     game_id: Mapped[int] = mapped_column(
-        "gameId",
+        "game_id",
         BigInteger,
-        ForeignKey('games."gameId"', ondelete="CASCADE"),
+        ForeignKey("games.game_id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
     user_id: Mapped[str] = mapped_column(
-        "userId",
+        "user_id",
         String(200),
-        ForeignKey('players."userId"'),
+        ForeignKey("players.user_id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-    user_num: Mapped[int | None] = mapped_column("userNum", BigInteger, nullable=True, index=True)
 
-    character_num: Mapped[int] = mapped_column("characterNum", Integer, default=0)
+    character_num: Mapped[int] = mapped_column("character_num", Integer, default=0)
     character_level: Mapped[int] = mapped_column("characterLevel", SmallInteger, default=0)
     skin_code: Mapped[int] = mapped_column("skinCode", Integer, default=0)
 

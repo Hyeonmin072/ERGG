@@ -17,9 +17,15 @@ import {
   filterComboRoster,
 } from "@/lib/comboRoster";
 import { getCharacterDefaultMiniSrc } from "@/lib/characterDefaultMini";
-import { getCharacterCatalog, getComboWinProbability, ApiError } from "@/lib/api";
+import {
+  getCharacterCatalog,
+  getComboWinProbability,
+  getWeaponCatalog,
+  ApiError,
+} from "@/lib/api";
 import type { CharacterCatalogItem } from "@/lib/types";
-import { getWeaponOptionsForCharacter } from "@/lib/weaponOptions";
+import { getMasteryWeaponCodesForCharacter } from "@/lib/characterWeaponChoices";
+import { getWeaponGroupIconSrcEncoded } from "@/lib/weaponGroupIcon";
 import "./combo-lab.css";
 
 /** 슬롯 하나: 실험체 + 해당 슬롯에서 고른 무기 타입 코드(bestWeapon) */
@@ -85,11 +91,9 @@ function defaultWeaponCodeForName(
   name: string,
   catalogItems: CharacterCatalogItem[]
 ): number {
-  const item = catalogItems.find(
-    (i) => (i.nameKo && i.nameKo === name) || i.name === name
-  );
-  const w = item?.weaponCode ?? item?.weaponType ?? 1;
-  return typeof w === "number" && !Number.isNaN(w) ? w : 1;
+  const num = characterNumForName(name, catalogItems);
+  const allowed = getMasteryWeaponCodesForCharacter(num, catalogItems);
+  return allowed[0] ?? 1;
 }
 
 function buildComboPayload(
@@ -109,6 +113,100 @@ function buildComboPayload(
   };
 }
 
+function WeaponIconButton({
+  code,
+  selected,
+  label,
+  src,
+  panelBorder,
+  accentSoft,
+  accent,
+  onPick,
+}: {
+  code: number;
+  selected: boolean;
+  label: string;
+  src: string | null;
+  panelBorder: string;
+  accentSoft: string;
+  accent: string;
+  onPick: () => void;
+}) {
+  const [imgFailed, setImgFailed] = useState(false);
+  const showImg = Boolean(src) && !imgFailed;
+
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      onClick={onPick}
+      className="relative rounded-lg overflow-hidden transition-all duration-150 shrink-0 flex items-center justify-center"
+      style={{
+        width: 44,
+        height: 44,
+        border: selected ? `2px solid ${accent}` : `1px solid ${panelBorder}`,
+        boxShadow: selected ? `0 0 16px ${accentSoft}` : "none",
+        background: selected ? "rgba(45,212,191,0.12)" : "rgba(0,0,0,0.35)",
+      }}
+    >
+      {showImg ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={src!}
+          alt=""
+          className="w-full h-full object-contain p-1"
+          draggable={false}
+          onError={() => setImgFailed(true)}
+        />
+      ) : (
+        <span
+          className="text-[10px] font-mono tabular-nums"
+          style={{ color: "var(--text-secondary)" }}
+        >
+          {code}
+        </span>
+      )}
+    </button>
+  );
+}
+
+function WeaponIconPicker({
+  selectedCode,
+  codes,
+  weaponNameByCode,
+  panelBorder,
+  accentSoft,
+  accent,
+  onPick,
+}: {
+  selectedCode: number;
+  codes: number[];
+  weaponNameByCode: Map<number, string>;
+  panelBorder: string;
+  accentSoft: string;
+  accent: string;
+  onPick: (code: number) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {codes.map((code) => (
+        <WeaponIconButton
+          key={code}
+          code={code}
+          selected={selectedCode === code}
+          label={weaponNameByCode.get(code) ?? `무기 #${code}`}
+          src={getWeaponGroupIconSrcEncoded(code)}
+          panelBorder={panelBorder}
+          accentSoft={accentSoft}
+          accent={accent}
+          onPick={() => onPick(code)}
+        />
+      ))}
+    </div>
+  );
+}
+
 export default function ComboWinratePage() {
   const [slots, setSlots] = useState<[SlotPick, SlotPick, SlotPick]>([
     null,
@@ -119,6 +217,9 @@ export default function ComboWinratePage() {
   const [demoRate, setDemoRate] = useState<number | null>(null);
   const [estimateKey, setEstimateKey] = useState(0);
   const [catalogItems, setCatalogItems] = useState<CharacterCatalogItem[]>([]);
+  const [weaponNameByCode, setWeaponNameByCode] = useState<Map<number, string>>(
+    () => new Map()
+  );
   const [estimateLoading, setEstimateLoading] = useState(false);
   const [estimateError, setEstimateError] = useState<string | null>(null);
 
@@ -127,6 +228,37 @@ export default function ComboWinratePage() {
       .then((r) => setCatalogItems(r.items))
       .catch(() => setCatalogItems([]));
   }, []);
+
+  useEffect(() => {
+    getWeaponCatalog()
+      .then((r) => {
+        const m = new Map<number, string>();
+        for (const w of r.items) {
+          const n = (w.name || "").trim();
+          if (n) m.set(w.code, n);
+        }
+        setWeaponNameByCode(m);
+      })
+      .catch(() => setWeaponNameByCode(new Map()));
+  }, []);
+
+  useEffect(() => {
+    if (!catalogItems.length) return;
+    setSlots((prev) => {
+      let changed = false;
+      const next = prev.map((s) => {
+        if (!s) return s;
+        const num = characterNumForName(s.name, catalogItems);
+        const allowed = getMasteryWeaponCodesForCharacter(num, catalogItems);
+        if (allowed.length && !allowed.includes(s.weaponCode)) {
+          changed = true;
+          return { ...s, weaponCode: allowed[0]! };
+        }
+        return s;
+      }) as [SlotPick, SlotPick, SlotPick];
+      return changed ? next : prev;
+    });
+  }, [catalogItems]);
 
   const filtered = useMemo(() => filterComboRoster(filter), [filter]);
 
@@ -465,27 +597,20 @@ export default function ComboWinratePage() {
                               className="text-[10px] font-mono tracking-wide"
                               style={{ color: "var(--text-secondary)" }}
                             >
-                              무기 타입 (bestWeapon 코드)
+                              사용 가능 무기
                             </label>
-                            <select
-                              value={slots[i]!.weaponCode}
-                              onChange={(e) =>
-                                setWeaponForSlot(i, Number(e.target.value))
-                              }
-                              className="w-full max-w-full text-xs sm:text-sm rounded-lg px-2.5 py-2 bg-black/35 border outline-none focus:border-teal-500/40"
-                              style={{
-                                color: "var(--text-primary)",
-                                borderColor: panelBorder,
-                              }}
-                            >
-                              {getWeaponOptionsForCharacter(
-                                characterNumForName(slots[i]!.name, catalogItems)
-                              ).map((o) => (
-                                <option key={o.code} value={o.code}>
-                                  {o.code}. {o.labelKo}
-                                </option>
-                              ))}
-                            </select>
+                            <WeaponIconPicker
+                              selectedCode={slots[i]!.weaponCode}
+                              codes={getMasteryWeaponCodesForCharacter(
+                                characterNumForName(slots[i]!.name, catalogItems),
+                                catalogItems
+                              )}
+                              weaponNameByCode={weaponNameByCode}
+                              panelBorder={panelBorder}
+                              accentSoft={accentSoft}
+                              accent={accent}
+                              onPick={(code) => setWeaponForSlot(i, code)}
+                            />
                           </div>
                         </>
                       ) : (

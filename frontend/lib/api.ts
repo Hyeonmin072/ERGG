@@ -10,6 +10,7 @@ import type {
   OctagonScore,
   CharacterStatsResponse,
   CharacterCatalogResponse,
+  WeaponCatalogResponse,
   ComboWinProbabilityRequest,
   ComboWinProbabilityResponse,
 } from "./types";
@@ -122,6 +123,13 @@ export async function refreshPlayerByUserId(
  */
 export async function getCharacterCatalog(): Promise<CharacterCatalogResponse> {
   return apiFetch<CharacterCatalogResponse>("/catalog/characters");
+}
+
+/**
+ * GET /api/v1/catalog/weapons — best_weapon 코드별 한글·영문 이름
+ */
+export async function getWeaponCatalog(): Promise<WeaponCatalogResponse> {
+  return apiFetch<WeaponCatalogResponse>("/catalog/weapons");
 }
 
 
