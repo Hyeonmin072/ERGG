@@ -39,12 +39,24 @@ async def main() -> None:
     if not user_ids:
         raise RuntimeError(f"userId가 없습니다: {INPUT_CSV}")
 
-    # sync 시작 전: 기존 isIn1000 전체 초기화
-    # → 오늘 sync된 유저만 isIn1000=true가 되도록 보장
-    print("[init] isIn1000 전체 초기화 중...")
     sb = get_supabase_client()
-    sb.table("players").update({"is_in1000": False}).neq("user_id", "").execute()
-    print("[init] 초기화 완료")
+    in1000_columns_available = True
+    # sync 시작 전: 오늘 배치에 안 들어간 유저는 is_in1000=false (컬럼 있을 때만)
+    print("[init] is_in1000 전체 초기화 시도...")
+    try:
+        sb.table("players").update({"is_in1000": False}).neq("user_id", "").execute()
+        print("[init] 초기화 완료")
+    except Exception as e:  # noqa: BLE001
+        err = str(e).lower()
+        if "is_in1000" in err or "pgrst204" in err or "schema cache" in err:
+            in1000_columns_available = False
+            print(
+                "[warn] players.is_in1000 컬럼 없음 — 마이그레이션을 실행하세요:\n"
+                "       backend/sql/migrations/20260414_add_in1000_flag_to_players.sql\n"
+                "       (Supabase SQL Editor). in1000 플래그 없이 게임 동기화만 진행합니다."
+            )
+        else:
+            raise
 
     total_saved = 0
     total_users_ok = 0
@@ -56,6 +68,7 @@ async def main() -> None:
                 user_id=user_id,
                 limit=GAMES_PER_USER,
                 is_in1000=True,
+                in1000_columns_available=in1000_columns_available,
             )
             saved = int(res.get("saved", 0))
             total_saved += saved

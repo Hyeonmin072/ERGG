@@ -1,8 +1,14 @@
 from __future__ import annotations
 
 from typing import Any
+
 from ..clients.er_api_client import get_er_client
 from ..clients.supabase_client import get_supabase_client
+
+# ER API: matchingMode 3 = rank (excludes normal mode 2, etc.)
+RANK_MATCHING_MODE = 3
+# Safety cap: rank-only filter may need many pages (~10 games/page, 1 req/s in client)
+_MAX_RANK_FETCH_PAGES = 80
 
 
 def _build_game_row(g: dict[str, Any]) -> dict[str, Any]:
@@ -119,10 +125,11 @@ async def sync_user_games_by_user_id_to_supabase(
     user_id: str,
     limit: int = 20,
     is_in1000: bool = False,
+    in1000_columns_available: bool = True,
 ) -> dict[str, Any]:
     """
-    userId 기반으로 게임을 조회해 Supabase에 저장.
-    next 커서를 이용해 유저당 최대 limit 게임 수집.
+    Rank-only (matchingMode=3): paginate with next until limit rank games or API ends.
+    Upsert to Supabase.
     """
     client = get_er_client()
     sb = get_supabase_client()
@@ -131,8 +138,12 @@ async def sync_user_games_by_user_id_to_supabase(
     next_cursor: str | None = None
     collected: list[dict[str, Any]] = []
 
-    while len(collected) < target:
+    seen_game_ids: set[int] = set()
+    pages_fetched = 0
+
+    while len(collected) < target and pages_fetched < _MAX_RANK_FETCH_PAGES:
         resp = await client.get_user_games_by_user_id(user_id=user_id, next_cursor=next_cursor)
+        pages_fetched += 1
         if resp.get("code") != 200:
             raise RuntimeError(f"userId 게임 목록 조회 실패: code={resp.get('code')}")
 
@@ -140,14 +151,39 @@ async def sync_user_games_by_user_id_to_supabase(
         if not batch:
             break
 
-        collected.extend(batch)
+        for g in batch:
+            if int(g.get("matchingMode") or 0) != RANK_MATCHING_MODE:
+                continue
+            gid = g.get("gameId")
+            if gid is None:
+                continue
+            try:
+                gid_int = int(gid)
+            except (TypeError, ValueError):
+                continue
+            if gid_int in seen_game_ids:
+                continue
+            seen_game_ids.add(gid_int)
+            collected.append(g)
+            if len(collected) >= target:
+                break
+
+        if len(collected) >= target:
+            break
+
         next_cursor = resp.get("next")
         if not next_cursor:
             break
 
-    user_games = collected[:target]
+    user_games = collected
     if not user_games:
-        return {"saved": 0, "games": 0, "message": "저장할 게임 데이터가 없습니다.", "user_id": user_id}
+        return {
+            "saved": 0,
+            "games": 0,
+            "message": "No ranked games to save (matchingMode=3).",
+            "user_id": user_id,
+            "pages_fetched": pages_fetched,
+        }
 
     first = user_games[0]
     nickname = first.get("nickname")
@@ -162,15 +198,18 @@ async def sync_user_games_by_user_id_to_supabase(
 
     from datetime import datetime, timezone
 
-    player_row = {
+    player_row: dict[str, Any] = {
         "user_id": user_id,
         "nickname": nickname or user_id,
         "account_level": first.get("accountLevel", 0),
         "rank_point": first.get("rankPoint", 0),
         "server_name": first.get("serverName", "Global"),
-        "is_in1000": is_in1000,
-        **({"in1000_sync_at": datetime.now(timezone.utc).isoformat()} if is_in1000 else {}),
     }
+    if in1000_columns_available:
+        player_row["is_in1000"] = is_in1000
+        if is_in1000:
+            player_row["in1000_sync_at"] = datetime.now(timezone.utc).isoformat()
+
     sb.table("players").upsert(player_row, on_conflict="user_id").execute()
 
     game_rows = [_build_game_row(g) for g in user_games if g.get("gameId")]
@@ -186,5 +225,6 @@ async def sync_user_games_by_user_id_to_supabase(
         "games": len(game_rows),
         "nickname": player_row["nickname"],
         "user_id": user_id,
-        "next_cursor_used": bool(next_cursor),
+        "pages_fetched": pages_fetched,
+        "rank_matching_mode": RANK_MATCHING_MODE,
     }
