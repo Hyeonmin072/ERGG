@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Optional
+from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Query
 from ..clients.er_api_client import get_er_client
 from ..clients.supabase_client import get_supabase_client
@@ -17,6 +18,10 @@ def _to_int(v: object) -> int | None:
     except (TypeError, ValueError):
         return None
     return n if n > 0 else None
+
+
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 def _build_equipment_images_for_games(games: list[dict]) -> None:
@@ -242,9 +247,10 @@ async def get_player_games_by_user_id_route(
         "games": games,
         "next": data.get("next"),
         "ladderRank": ladder_rank,
+        "refreshedAt": _utc_now_iso(),
     }
     try:
-        await cache_set(cache_key, result, ttl=120)
+        await cache_set(cache_key, result, ttl=7200)
     except Exception:
         pass
     return result

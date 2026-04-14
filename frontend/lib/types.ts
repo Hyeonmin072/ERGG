@@ -376,6 +376,7 @@ export interface PlayerGamesResponse {
   games: UserGame[];
   next: string | null;   // cursor for next page
   ladderRank?: number | null; // ER /v2/user/stats rank
+  refreshedAt?: string | null;
 }
 
 /** /api/octagon/by-user-id */
