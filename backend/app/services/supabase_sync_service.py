@@ -16,6 +16,19 @@ def _nickname_key(nickname: str) -> str:
     return (nickname or "").strip().lower()
 
 
+def _latest_user_game_for_snapshot(user_games: list[dict[str, Any]]) -> dict[str, Any]:
+    """Pick latest match by startDtm then gameId for players.rank_point snapshot."""
+    if not user_games:
+        return {}
+    return max(
+        user_games,
+        key=lambda g: (
+            str(g.get("startDtm") or ""),
+            int(g.get("gameId") or 0),
+        ),
+    )
+
+
 def _release_nickname_key_for_other_users(
     sb: Any,
     *,
@@ -220,8 +233,9 @@ async def sync_user_games_by_user_id_to_supabase(
             "pages_fetched": pages_fetched,
         }
 
+    latest = _latest_user_game_for_snapshot(user_games)
     first = user_games[0]
-    nickname = first.get("nickname")
+    nickname = latest.get("nickname") or first.get("nickname")
 
     if not nickname:
         try:
@@ -240,9 +254,9 @@ async def sync_user_games_by_user_id_to_supabase(
     player_row: dict[str, Any] = {
         "user_id": user_id,
         "nickname": display_nickname,
-        "account_level": first.get("accountLevel", 0),
-        "rank_point": first.get("rankPoint", 0),
-        "server_name": first.get("serverName", "Global"),
+        "account_level": latest.get("accountLevel", 0),
+        "rank_point": latest.get("rankPoint", 0),
+        "server_name": latest.get("serverName", "Global"),
     }
     if nk and nk_col_ok:
         player_row["nickname_key"] = nk
