@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from ..clients.supabase_client import get_supabase_client
 from ..core.config import settings
+from ..core.redis import cache_get, cache_set
 from ..data.weapon_type_ko import (
     build_best_weapon_code_to_ko_db_first,
     resolve_weapon_display_name_for_stats,
@@ -112,6 +113,15 @@ async def get_character_stats(
     - 픽률/승률/top3/평균순위
     - 평균 RP 획득량(mmr_gain), 평균 TK(team_kill), 평균 킬(player_kill)
     """
+    cache_key = f"stats:characters:minGames={minGames}:limit={limit}"
+    try:
+        cached = await cache_get(cache_key)
+        if isinstance(cached, dict):
+            return cached
+    except Exception:
+        # Cache failure should not block stats response.
+        pass
+
     try:
         # 운영 DB는 snake_case(game_id, …). camelCase 스키마와 병행 시 _row_get 으로 양쪽 키 처리.
         games_rows = _fetch_all_rows("games", "game_id,matching_mode,matching_team_mode")
@@ -304,8 +314,13 @@ async def get_character_stats(
         )
 
     items.sort(key=lambda x: (x["tierScore"], x["games"]), reverse=True)
-    return {
+    result = {
         "totalGames": totals,
         "count": min(len(items), limit),
         "items": items[:limit],
     }
+    try:
+        await cache_set(cache_key, result)
+    except Exception:
+        pass
+    return result

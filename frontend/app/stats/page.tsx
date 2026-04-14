@@ -227,6 +227,8 @@ export default function StatsPage() {
   const [error, setError] = useState<string | null>(null);
   const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [progress, setProgress] = useState(0);
+  const [showProgress, setShowProgress] = useState(false);
 
   const handleSortClick = (col: SortColumn | null) => {
     if (col === null) {
@@ -247,6 +249,28 @@ export default function StatsPage() {
       .then((r) => setCharCatalog(buildCharacterCatalogMap(r.items ?? [])))
       .catch(() => setCharCatalog({}));
   }, []);
+
+  useEffect(() => {
+    if (!loading) {
+      setProgress(100);
+      const hideTimer = window.setTimeout(() => {
+        setShowProgress(false);
+        setProgress(0);
+      }, 250);
+      return () => window.clearTimeout(hideTimer);
+    }
+
+    setShowProgress(true);
+    setProgress(8);
+    const interval = window.setInterval(() => {
+      setProgress((p) => {
+        if (p >= 90) return p;
+        const step = p < 40 ? 7 : p < 70 ? 4 : 2;
+        return Math.min(90, p + step);
+      });
+    }, 180);
+    return () => window.clearInterval(interval);
+  }, [loading]);
 
   useEffect(() => {
     let mounted = true;
@@ -418,6 +442,31 @@ export default function StatsPage() {
           <p className="mb-4 text-sm" style={{ color: "#f87171" }}>
             오류: {error}
           </p>
+        )}
+        {showProgress && (
+          <div className="mb-4">
+            <div
+              className="h-2 w-full overflow-hidden rounded-full"
+              style={{ background: "rgba(148,163,184,0.18)", border: `1px solid ${border}` }}
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(progress)}
+              aria-label="통계 집계 진행률"
+            >
+              <div
+                className="h-full transition-all duration-200 ease-out"
+                style={{
+                  width: `${progress}%`,
+                  background:
+                    "linear-gradient(90deg, rgba(147,197,253,0.9) 0%, rgba(52,211,153,0.9) 100%)",
+                }}
+              />
+            </div>
+            <div className="mt-1 text-right text-[11px] font-mono" style={{ color: "var(--text-secondary)" }}>
+              집계 중... {Math.round(progress)}%
+            </div>
+          </div>
         )}
 
         {/* 데스크톱 테이블 */}

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-from typing import Optional
-from datetime import datetime, timezone
-from fastapi import APIRouter, HTTPException, Query
+import logging
+from typing import Any, Optional
+
+import httpx
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from ..clients.er_api_client import get_er_client
 from ..clients.supabase_client import get_supabase_client
 from ..core.config import settings
@@ -10,6 +12,25 @@ from ..core.redis import cache_get, cache_set, cache_delete_pattern
 from ..services.supabase_sync_service import sync_user_games_by_user_id_to_supabase
 
 router = APIRouter()
+_log = logging.getLogger(__name__)
+
+
+async def _persist_search_rank_games(user_id: str, limit: int) -> None:
+    """검색 유입 시 랭크 전적만 Supabase에 저장 (is_in1000 등 플래그는 변경하지 않음)."""
+    try:
+        await sync_user_games_by_user_id_to_supabase(
+            user_id=user_id,
+            limit=limit,
+            touch_in1000_fields=False,
+        )
+        await cache_delete_pattern("stats:characters:*")
+    except httpx.HTTPStatusError as e:
+        if e.response is not None and e.response.status_code == 429:
+            _log.warning("Background persist skipped by ER rate limit userId=%s", user_id)
+            return
+        _log.exception("Background persist rank games failed userId=%s", user_id)
+    except Exception:
+        _log.exception("Background persist rank games failed userId=%s", user_id)
 
 
 def _to_int(v: object) -> int | None:
@@ -168,7 +189,7 @@ async def search_player(nickname: str):
         or raw.get("userID"),
     }
     try:
-        await cache_set(cache_key, result, ttl=60)
+        await cache_set(cache_key, result)
     except Exception:
         pass
     return result
@@ -177,12 +198,26 @@ async def search_player(nickname: str):
 @router.get("/games/by-user-id")
 async def get_player_games_by_user_id_route(
     userId: str,
+    background_tasks: BackgroundTasks,
     cursor: Optional[str] = None,
     maxPages: int = Query(
         2,
         ge=1,
         le=10,
         description="cursor 없을 때 ER에서 연속으로 가져올 페이지 수(1페이지≈10판). 기본 2→최대 ~20판.",
+    ),
+    persist: bool = Query(
+        False,
+        description=(
+            "If true, after this request (no cursor) persist up to persistLimit rank "
+            "(matchingMode=3) games to Supabase in the background; does not change is_in1000."
+        ),
+    ),
+    persistLimit: int = Query(
+        20,
+        ge=1,
+        le=100,
+        description="Max rank (matchingMode=3) games to store when persist is true.",
     ),
 ):
     """
@@ -192,6 +227,7 @@ async def get_player_games_by_user_id_route(
     - 응답의 `next`가 있으면: GET /v1/user/games/uid/{userId}?next={next} 로 다음 ~10건
     - `cursor`가 있으면 해당 next부터 **한 페이지만** (더보기)
     - `cursor` 없고 `maxPages`>1 이면 서버에서 위를 연속 호출해 합침
+    - `persist=true` and no cursor: background persist of rank games (any user, including self-search).
     """
     uid = userId.strip()
     if not uid:
@@ -243,14 +279,17 @@ async def get_player_games_by_user_id_route(
                 ladder_rank = _extract_ladder_rank(stats_data)
             except Exception:
                 ladder_rank = None
-    result = {
+    result: dict[str, Any] = {
         "games": games,
         "next": data.get("next"),
         "ladderRank": ladder_rank,
         "refreshedAt": _utc_now_iso(),
     }
+    if persist and cursor is None:
+        background_tasks.add_task(_persist_search_rank_games, uid, persistLimit)
+        result["persistScheduled"] = True
     try:
-        await cache_set(cache_key, result, ttl=7200)
+        await cache_set(cache_key, {k: v for k, v in result.items() if k != "persistScheduled"})
     except Exception:
         pass
     return result
@@ -264,13 +303,20 @@ async def refresh_player_by_user_id(userId: str):
         raise HTTPException(status_code=400, detail="userId가 필요합니다.")
     await cache_delete_pattern(f"player:games:uid:{uid}*")
     await cache_delete_pattern(f"octagon:uid:{uid}*")
+    await cache_delete_pattern("stats:characters:*")
     return {"message": "캐시가 초기화되었습니다. 다음 조회 시 최신 데이터가 반영됩니다."}
 
 
 @router.post("/sync-supabase/by-user-id")
 async def sync_player_games_by_user_id(userId: str, limit: int = 20):
-    """userId 기준 최근 게임을 Supabase에 업서트."""
+    """Upsert rank games (limit) for userId. Does not modify is_in1000 / in1000_sync_at."""
     try:
-        return await sync_user_games_by_user_id_to_supabase(user_id=userId, limit=limit)
+        res = await sync_user_games_by_user_id_to_supabase(
+            user_id=userId,
+            limit=limit,
+            touch_in1000_fields=False,
+        )
+        await cache_delete_pattern("stats:characters:*")
+        return res
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"userId 동기화 실패: {e}")

@@ -11,6 +11,9 @@ class Player(Base):
 
     user_id: Mapped[str] = mapped_column("user_id", String(200), primary_key=True)
     nickname: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    nickname_key: Mapped[str | None] = mapped_column(
+        "nickname_key", String(200), nullable=True, index=True
+    )
     account_level: Mapped[int] = mapped_column("account_level", Integer, default=0)
     rank_point: Mapped[int] = mapped_column("rank_point", Integer, default=0)
     server_name: Mapped[str] = mapped_column("server_name", String(20), default="Asia")

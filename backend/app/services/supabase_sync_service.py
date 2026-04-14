@@ -11,6 +11,47 @@ RANK_MATCHING_MODE = 3
 _MAX_RANK_FETCH_PAGES = 80
 
 
+def _nickname_key(nickname: str) -> str:
+    """lower(trim(nickname)) — same as migration backfill."""
+    return (nickname or "").strip().lower()
+
+
+def _latest_user_game_for_snapshot(user_games: list[dict[str, Any]]) -> dict[str, Any]:
+    """Pick latest match by startDtm then gameId for players.rank_point snapshot."""
+    if not user_games:
+        return {}
+    return max(
+        user_games,
+        key=lambda g: (
+            str(g.get("startDtm") or ""),
+            int(g.get("gameId") or 0),
+        ),
+    )
+
+
+def _release_nickname_key_for_other_users(
+    sb: Any,
+    *,
+    nickname_key: str,
+    user_id: str,
+) -> bool:
+    """Nickname recycled: set nickname_key=NULL on other player rows only."""
+    nickname_key = (nickname_key or "").strip()
+    user_id = (user_id or "").strip()
+    if not nickname_key or not user_id:
+        return True
+    try:
+        sb.table("players").update({"nickname_key": None}).eq("nickname_key", nickname_key).neq(
+            "user_id", user_id
+        ).execute()
+        return True
+    except Exception as e:
+        err = str(e).lower()
+        if "nickname_key" in err or "pgrst204" in err or "column" in err:
+            return False
+        raise
+
+
 def _build_game_row(g: dict[str, Any]) -> dict[str, Any]:
     """Supabase `games` — snake_case 컬럼명."""
     return {
@@ -126,10 +167,17 @@ async def sync_user_games_by_user_id_to_supabase(
     limit: int = 20,
     is_in1000: bool = False,
     in1000_columns_available: bool = True,
+    touch_in1000_fields: bool = True,
 ) -> dict[str, Any]:
     """
     Rank-only (matchingMode=3): paginate with next until limit rank games or API ends.
     Upsert to Supabase.
+
+    touch_in1000_fields:
+      True  — in1000 batch: write is_in1000 / in1000_sync_at when columns exist.
+      False — search/casual save: update nickname/RP only; do not change in1000 flags.
+
+    nickname_key: only this user_id keeps the key; others get NULL (nickname recycle).
     """
     client = get_er_client()
     sb = get_supabase_client()
@@ -185,8 +233,9 @@ async def sync_user_games_by_user_id_to_supabase(
             "pages_fetched": pages_fetched,
         }
 
+    latest = _latest_user_game_for_snapshot(user_games)
     first = user_games[0]
-    nickname = first.get("nickname")
+    nickname = latest.get("nickname") or first.get("nickname")
 
     if not nickname:
         try:
@@ -198,14 +247,20 @@ async def sync_user_games_by_user_id_to_supabase(
 
     from datetime import datetime, timezone
 
+    display_nickname = nickname or user_id
+    nk = _nickname_key(display_nickname)
+    nk_col_ok = _release_nickname_key_for_other_users(sb, nickname_key=nk, user_id=user_id)
+
     player_row: dict[str, Any] = {
         "user_id": user_id,
-        "nickname": nickname or user_id,
-        "account_level": first.get("accountLevel", 0),
-        "rank_point": first.get("rankPoint", 0),
-        "server_name": first.get("serverName", "Global"),
+        "nickname": display_nickname,
+        "account_level": latest.get("accountLevel", 0),
+        "rank_point": latest.get("rankPoint", 0),
+        "server_name": latest.get("serverName", "Global"),
     }
-    if in1000_columns_available:
+    if nk and nk_col_ok:
+        player_row["nickname_key"] = nk
+    if touch_in1000_fields and in1000_columns_available:
         player_row["is_in1000"] = is_in1000
         if is_in1000:
             player_row["in1000_sync_at"] = datetime.now(timezone.utc).isoformat()

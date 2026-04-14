@@ -376,7 +376,8 @@ export interface PlayerGamesResponse {
   games: UserGame[];
   next: string | null;   // cursor for next page
   ladderRank?: number | null; // ER /v2/user/stats rank
-  refreshedAt?: string | null;
+  /** First-page request with persist: background Supabase write may be scheduled */
+  persistScheduled?: boolean;
 }
 
 /** /api/octagon/by-user-id */
