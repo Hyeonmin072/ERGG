@@ -119,6 +119,7 @@ async def sync_user_games_by_user_id_to_supabase(
     user_id: str,
     limit: int = 20,
     is_in1000: bool = False,
+    in1000_columns_available: bool = True,
 ) -> dict[str, Any]:
     """
     userId 기반으로 게임을 조회해 Supabase에 저장.
@@ -162,15 +163,18 @@ async def sync_user_games_by_user_id_to_supabase(
 
     from datetime import datetime, timezone
 
-    player_row = {
+    player_row: dict[str, Any] = {
         "user_id": user_id,
         "nickname": nickname or user_id,
         "account_level": first.get("accountLevel", 0),
         "rank_point": first.get("rankPoint", 0),
         "server_name": first.get("serverName", "Global"),
-        "is_in1000": is_in1000,
-        **({"in1000_sync_at": datetime.now(timezone.utc).isoformat()} if is_in1000 else {}),
     }
+    if in1000_columns_available:
+        player_row["is_in1000"] = is_in1000
+        if is_in1000:
+            player_row["in1000_sync_at"] = datetime.now(timezone.utc).isoformat()
+
     sb.table("players").upsert(player_row, on_conflict="user_id").execute()
 
     game_rows = [_build_game_row(g) for g in user_games if g.get("gameId")]

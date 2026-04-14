@@ -11,6 +11,9 @@ jobs:
     name: Sync top-1000 user data to Supabase
     runs-on: ubuntu-latest
     timeout-minutes: 90   # 3단계 합산 최대 90분
+    env:
+      # Node 20 deprecation 경고 줄이기 (실패 원인 아님)
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     defaults:
       run:
@@ -43,6 +46,7 @@ jobs:
           name: top1000-nicknames-${{ github.run_id }}
           path: backend/dakgg_asia_season10_top1000.csv
           retention-days: 7
+          if-no-files-found: ignore
 
       # ── Step 2: 닉네임 → userId 변환 (~17분) ────────────────────
       - name: "[2/3] Fetch user IDs from BSER Open API"
@@ -57,11 +61,16 @@ jobs:
           name: top1000-user-ids-${{ github.run_id }}
           path: backend/dakgg_asia_season10_user_ids.csv
           retention-days: 7
+          if-no-files-found: ignore
 
       # ── Step 3: Supabase 동기화 ──────────────────────────────────
       - name: "[3/3] Sync match data to Supabase"
         env:
+          PYTHONPATH: ${{ github.workspace }}/backend
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           ER_API_KEY: ${{ secrets.ER_API_KEY }}
         run: python sync_supabase_from_user_ids.py
+
+      - name: Run database migrations
+        run: python migrate_db_camelcase.py
