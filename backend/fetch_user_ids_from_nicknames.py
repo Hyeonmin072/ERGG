@@ -45,11 +45,20 @@ def load_nicknames(path: Path, limit: int) -> list[str]:
 
 
 def write_rows(path: Path, rows: list[dict[str, str | int | None]]) -> None:
+    """One CSV row per distinct userId (same account twice in rank list)."""
+    seen: set[str] = set()
+    ordered_ids: list[str] = []
+    for r in rows:
+        uid = (r.get("userId") or "").strip()
+        if not uid or uid in seen:
+            continue
+        seen.add(uid)
+        ordered_ids.append(uid)
     with path.open("w", encoding="utf-8-sig", newline="") as f:
         w = csv.writer(f)
         w.writerow(["userId"])
-        for r in rows:
-            w.writerow([r.get("userId") or ""])
+        for uid in ordered_ids:
+            w.writerow([uid])
 
 
 def fetch_one(client: httpx.Client, nickname: str) -> dict[str, str | int | None]:

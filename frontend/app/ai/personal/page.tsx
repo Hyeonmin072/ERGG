@@ -203,7 +203,9 @@ export default function PersonalMetricsPage() {
         return;
       }
       const [gamesRes, octRes] = await Promise.allSettled([
-        getPlayerGamesByUserId(resolvedUserId),
+        getPlayerGamesByUserId(resolvedUserId, undefined, 2, {
+          persistToSupabase: true,
+        }),
         getOctagonScoreByUserId(resolvedUserId),
       ]);
       if (gamesRes.status === "rejected") {

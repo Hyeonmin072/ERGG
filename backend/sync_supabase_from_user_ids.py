@@ -23,10 +23,20 @@ GAMES_PER_USER = 20
 
 
 def load_user_ids(path: Path, limit: int) -> list[str]:
+    """Preserve CSV order; each userId only once (dedupe input rows)."""
     with path.open("r", encoding="utf-8-sig", newline="") as f:
         rows = list(csv.DictReader(f))
-    values = [r.get("userId", "").strip() for r in rows]
-    return [v for v in values if v][:limit]
+    seen: set[str] = set()
+    out: list[str] = []
+    for r in rows:
+        v = (r.get("userId", "") or "").strip()
+        if not v or v in seen:
+            continue
+        seen.add(v)
+        out.append(v)
+        if len(out) >= limit:
+            break
+    return out
 
 
 async def main() -> None:
@@ -69,6 +79,7 @@ async def main() -> None:
                 limit=GAMES_PER_USER,
                 is_in1000=True,
                 in1000_columns_available=in1000_columns_available,
+                touch_in1000_fields=True,
             )
             saved = int(res.get("saved", 0))
             total_saved += saved

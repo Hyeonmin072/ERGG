@@ -107,7 +107,9 @@ export default function PlayerPage() {
         return;
       }
 
-      const gamesPromise = getPlayerGamesByUserId(userId);
+      const gamesPromise = getPlayerGamesByUserId(userId, undefined, 2, {
+        persistToSupabase: true,
+      });
       const octagonPromise = getOctagonScoreByUserId(userId);
 
       const [gamesResult, octagonResult] = await Promise.allSettled([

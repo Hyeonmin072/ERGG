@@ -82,22 +82,32 @@ export async function searchPlayer(
   );
 }
 
+export type GetPlayerGamesByUserIdOptions = {
+  persistToSupabase?: boolean;
+  persistLimit?: number;
+};
+
 /**
  * userId(닉네임 검색 userId) 기준 전적.
  * 백엔드가 ER: GET /v1/user/games/uid/{userId} → next 있으면 ?next= 로 2페이지까지 합침(기본).
- * GET /api/v1/players/games/by-user-id?userId=&maxPages= | &cursor=
+ * GET /api/v1/players/games/by-user-id?userId=&maxPages= | &cursor= | persist=
  */
 export async function getPlayerGamesByUserId(
   userId: string,
   cursor?: string,
   /** cursor 없을 때 합칠 ER 페이지 수(1≈10판). 기본 2 → 최대 ~20판 */
-  maxPages = 2
+  maxPages = 2,
+  options?: GetPlayerGamesByUserIdOptions
 ): Promise<PlayerGamesResponse> {
   const sp = new URLSearchParams({ userId });
   if (cursor) {
     sp.set("cursor", cursor);
   } else {
     sp.set("maxPages", String(maxPages));
+    if (options?.persistToSupabase) {
+      sp.set("persist", "true");
+      sp.set("persistLimit", String(options.persistLimit ?? 20));
+    }
   }
   return apiFetch<PlayerGamesResponse>(`/players/games/by-user-id?${sp.toString()}`);
 }
