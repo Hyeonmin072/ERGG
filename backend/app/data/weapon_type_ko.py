@@ -94,9 +94,6 @@ EXTRA_BEST_WEAPON_CODE_TO_KO: dict[int, str] = {
 
 # 통계 UI: best_weapon 코드는 WeaponTypeInfo 공통이나, 게임 내 통칭은 실험체별로 다름
 CHARACTER_WEAPON_NAME_OVERRIDE: dict[tuple[int, int], str] = {
-    (17, 5): "단검",  # 쇼이치 · Whip
-    (5, 5): "레이피어",  # 피오라 · Whip
-    (15, 5): "레이피어",  # 키아라 · Whip
     (18, 15): "권총",  # 실비아 · TwoHandSword
 }
 

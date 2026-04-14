@@ -42,7 +42,7 @@ function tacticalUseCount(g: UserGame): number {
   return g.tacticalSkillLevel ?? 0;
 }
 
-const DPM_CAP = 1400;
+const DPM_CAP = 1200;
 const KILL_CAP = 6;
 const ASSIST_CAP = 8;
 const CC_CAP = 5;
@@ -98,7 +98,7 @@ export function computeOctagonFromUserGames(
   const rawEngagementDim = (avgParticipation * 100 * 0.6) + (sAssist * 0.3) + (sCc * 0.1);
 
   // 최종 교전 점수 (화력 50% : 기여 50%)
-  const rawEngagement = 0.5 * rawOutput + 0.5 * rawEngagementDim;
+  const rawEngagement = (0.7 * rawOutput) + (0.3 * rawEngagementDim);
 
   const MK_CAP = 88;
   const VF_CAP = 460;
@@ -108,11 +108,9 @@ export function computeOctagonFromUserGames(
   const sVf = Math.min(avgVfGain / VF_CAP, 1) * 100;
   const rawHunting = sMk * 0.5 + sVf * 0.5;
 
-  const camAvg =
-    avgKeys("addSurveillanceCamera", "add_surveillance_camera") +
-    avgKeys("addTelephotoCamera", "add_telephoto_camera");
+// --- [수정] 시야(Vision) 계산: 오직 시야 기여도 점수만 사용 (만점 40점 기준 백분율) ---
   const avgView = avgKeys("viewContribution", "view_contribution");
-  const rawVision = camAvg * 5.5 + avgView * 0.48;
+  const rawVision = Math.min((avgView / 40) * 100, 100);
 
   const avgRank = avgKeys("gameRank", "game_rank");
   const rankPct = (1 - (avgRank - 1) / 7) * 100;

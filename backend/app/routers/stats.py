@@ -87,15 +87,15 @@ def _resolve_alex_character_num(chars: list[dict]) -> int | None:
 
 
 def _tier_grade(score: float) -> str:
-    if score >= 90:
+    if score >= 60:
         return "S+"
-    if score >= 80:
+    if score >= 57:
         return "S"
-    if score >= 68:
+    if score >= 53:
         return "A"
-    if score >= 55:
+    if score >= 46:
         return "B"
-    if score >= 42:
+    if score >= 40:
         return "C"
     return "D"
 
