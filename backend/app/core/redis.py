@@ -63,14 +63,21 @@ async def cache_get(key: str) -> Optional[Any]:
     return None
 
 
-async def cache_set(key: str, value: Any, ttl: int = 300) -> None:
+async def cache_set(key: str, value: Any, ttl: int | None = None) -> None:
     r = await get_redis()
     try:
-        await r.set(key, json.dumps(value, default=str), ex=ttl)
+        payload = json.dumps(value, default=str)
+        if ttl is None:
+            await r.set(key, payload)
+        else:
+            await r.set(key, payload, ex=ttl)
     except Exception:
         logger.exception("[redis] cache set failed key=%s ttl=%s", key, ttl)
         raise
-    logger.info("[redis] cache set key=%s ttl=%s", key, ttl)
+    if ttl is None:
+        logger.info("[redis] cache set key=%s ttl=none", key)
+    else:
+        logger.info("[redis] cache set key=%s ttl=%s", key, ttl)
 
 
 async def cache_delete(key: str) -> None:

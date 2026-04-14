@@ -23,12 +23,20 @@ class ErApiClient:
 
     async def _get(self, path: str, params: dict | None = None) -> dict:
         async with _semaphore:
-            try:
-                resp = await self._client.get(path, params=params)
-                resp.raise_for_status()
-                return resp.json()
-            finally:
-                await asyncio.sleep(1.0)  # Rate limit 대응
+            for attempt in range(3):
+                try:
+                    resp = await self._client.get(path, params=params)
+                    resp.raise_for_status()
+                    return resp.json()
+                except httpx.HTTPStatusError as e:
+                    # 429 is transient; retry with backoff, then bubble up.
+                    if e.response is not None and e.response.status_code == 429 and attempt < 2:
+                        await asyncio.sleep(1.5 * (attempt + 1))
+                        continue
+                    raise
+                finally:
+                    await asyncio.sleep(1.0)  # Base pacing between requests
+            raise RuntimeError("ER API request retry exceeded unexpectedly")
 
     async def search_by_nickname(self, nickname: str) -> dict:
         """

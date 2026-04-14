@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Optional
 
+import httpx
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from ..clients.er_api_client import get_er_client
 from ..clients.supabase_client import get_supabase_client
@@ -22,6 +23,11 @@ async def _persist_search_rank_games(user_id: str, limit: int) -> None:
             limit=limit,
             touch_in1000_fields=False,
         )
+    except httpx.HTTPStatusError as e:
+        if e.response is not None and e.response.status_code == 429:
+            _log.warning("Background persist skipped by ER rate limit userId=%s", user_id)
+            return
+        _log.exception("Background persist rank games failed userId=%s", user_id)
     except Exception:
         _log.exception("Background persist rank games failed userId=%s", user_id)
 
@@ -178,7 +184,7 @@ async def search_player(nickname: str):
         or raw.get("userID"),
     }
     try:
-        await cache_set(cache_key, result, ttl=60)
+        await cache_set(cache_key, result)
     except Exception:
         pass
     return result
@@ -232,10 +238,6 @@ async def get_player_games_by_user_id_route(
     try:
         cached = await cache_get(cache_key)
         if cached:
-            if persist and cursor is None and isinstance(cached, dict):
-                background_tasks.add_task(_persist_search_rank_games, uid, persistLimit)
-                out: dict[str, Any] = {**cached, "persistScheduled": True}
-                return out
             return cached
     except Exception:
         pass
@@ -281,7 +283,7 @@ async def get_player_games_by_user_id_route(
         background_tasks.add_task(_persist_search_rank_games, uid, persistLimit)
         result["persistScheduled"] = True
     try:
-        await cache_set(cache_key, {k: v for k, v in result.items() if k != "persistScheduled"}, ttl=120)
+        await cache_set(cache_key, {k: v for k, v in result.items() if k != "persistScheduled"})
     except Exception:
         pass
     return result
