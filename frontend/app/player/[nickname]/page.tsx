@@ -42,6 +42,21 @@ function pickLadderRank(game?: UserGame | null): number | null {
   return null;
 }
 
+function formatElapsedSinceSync(syncAt: string | null): string {
+  if (!syncAt) return "최근 갱신";
+  const ts = new Date(syncAt).getTime();
+  if (!Number.isFinite(ts)) return "갱신 필요";
+  const diffMs = Date.now() - ts;
+  if (!Number.isFinite(diffMs) || diffMs < 0) return "갱신 필요";
+  const totalMin = Math.floor(diffMs / 60000);
+  if (totalMin < 1) return "최근 갱신";
+  if (totalMin < 60) return `${totalMin}분 전 갱신`;
+  const totalHours = Math.floor(totalMin / 60);
+  if (totalHours < 24) return `${totalHours}시간 전 갱신`;
+  const totalDays = Math.floor(totalHours / 24);
+  return `${totalDays}일 전 갱신`;
+}
+
 export default function PlayerPage() {
   const { nickname: rawParam } = useParams<{ nickname: string }>();
   const nickname = decodeURIComponent(
@@ -146,7 +161,7 @@ export default function PlayerPage() {
         rankPoint,
         ladderRank,
         tier,
-        lastSyncAt: new Date().toISOString(),
+        lastSyncAt: gamesData?.refreshedAt ?? null,
         stats: null,
         octagon,
         recentGames,
@@ -227,6 +242,10 @@ export default function PlayerPage() {
   const ladderRank = player.ladderRank ?? pickLadderRank(latestRankedGame);
   const tierColor = getTierColorFromRankOrRP(player.rankPoint, ladderRank);
   const tierImageSrc = getTierImageFromRankOrRP(player.rankPoint, ladderRank);
+  const hasSyncTimestamp =
+    typeof player.lastSyncAt === "string" &&
+    Number.isFinite(new Date(player.lastSyncAt).getTime());
+  const syncLabel = formatElapsedSinceSync(player.lastSyncAt);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 fade-in">
@@ -314,7 +333,7 @@ export default function PlayerPage() {
             <button
               type="button"
               onClick={handleRefresh}
-              disabled={refreshing}
+              disabled={refreshing || syncLabel === "최근 갱신"}
               className="flex items-center gap-2 text-sm font-bold px-4 py-2.5 rounded-xl transition-all disabled:opacity-55 disabled:cursor-not-allowed"
               style={{
                 background: refreshing
@@ -331,6 +350,9 @@ export default function PlayerPage() {
               <RefreshCw size={16} className={refreshing ? "animate-spin shrink-0" : "shrink-0"} />
               {refreshing ? "갱신 중..." : "전적 갱신"}
             </button>
+            <span className="mt-2 text-[11px]" style={{ color: "var(--text-secondary)" }}>
+              {syncLabel}
+            </span>
           </div>
         </div>
       </div>
