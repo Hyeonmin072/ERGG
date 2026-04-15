@@ -10,7 +10,7 @@ jobs:
   sync:
     name: Sync top-1000 user data to Supabase
     runs-on: ubuntu-latest
-    timeout-minutes: 90   # 3단계 합산 최대 90분
+    timeout-minutes: 180   # 3단계 합산 최대 3시간 (API 페이싱 유지 시 여유)
     env:
       # Node 20 deprecation 경고 줄이기 (실패 원인 아님)
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
