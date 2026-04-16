@@ -26,7 +26,9 @@ import {
 } from "@/lib/api";
 import { useRecentSearches } from "@/hooks/useRecentSearches";
 import type { PlayerProfile, UserGame } from "@/lib/types";
-import { RefreshCw, Trophy, Sword, Target, Clock, AlertCircle } from "lucide-react";
+import { RefreshCw, Trophy, AlertCircle } from "lucide-react";
+import { resolveCharacterDisplayName } from "@/lib/characterDisplay";
+import { getCharacterDefaultMiniSrc } from "@/lib/characterDefaultMini";
 
 // ── 개발 환경 목 모드 ─────────────────────────────────────────
 const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "true";
@@ -86,6 +88,29 @@ export default function PlayerPage() {
     }
     return player.octagon;
   }, [player?.userId, player?.octagon, games]);
+
+  const mostPlayedChars = useMemo(() => {
+    if (games.length === 0) return [];
+    const map = new Map<number, { charNum: number; name: string; games: number; wins: number }>();
+    games.forEach((g) => {
+      const charNum = g.characterNum ?? 0;
+      if (!charNum) return;
+      if (!map.has(charNum)) {
+        map.set(charNum, {
+          charNum,
+          name: resolveCharacterDisplayName(charNum, charCatalog),
+          games: 0,
+          wins: 0,
+        });
+      }
+      const entry = map.get(charNum)!;
+      entry.games++;
+      if (g.gameRank === 1 || g.victory === 1) entry.wins++;
+    });
+    return Array.from(map.values())
+      .sort((a, b) => b.games - a.games)
+      .slice(0, 5);
+  }, [games, charCatalog]);
 
   useEffect(() => {
     getCharacterCatalog()
@@ -259,145 +284,305 @@ export default function PlayerPage() {
     <div className="max-w-7xl mx-auto px-4 py-6 fade-in">
       {/* 플레이어 헤더 */}
       <div
-        className="card p-6 mb-6"
+        className="relative mb-6 rounded-2xl overflow-hidden"
         style={{
-          background: `linear-gradient(180deg, rgba(20,29,53,0.70) 0%, rgba(15,22,41,0.55) 100%)`,
-          borderColor: "rgba(255,255,255,0.10)",
-          boxShadow: "0 18px 50px rgba(0,0,0,0.28)",
-          backdropFilter: "blur(10px)",
+          background: "linear-gradient(135deg, rgba(20,29,53,0.96) 0%, rgba(15,22,41,0.90) 100%)",
+          border: `1px solid ${tierColor}2a`,
+          boxShadow: `0 0 0 1px rgba(255,255,255,0.05), 0 24px 64px rgba(0,0,0,0.50), 0 0 120px ${tierColor}10`,
         }}
       >
-        <div className="flex items-start gap-5">
-          {/* 티어 이미지 */}
-          <div className="w-16 h-16 shrink-0 flex items-center justify-center">
-            <Image
-              src={tierImageSrc}
-              alt={player.tier}
-              width={64}
-              height={64}
-              style={{ objectFit: "contain" }}
-            />
-          </div>
+        {/* 티어 컬러 상단 강조선 */}
+        <div
+          style={{
+            height: 3,
+            background: `linear-gradient(90deg, ${tierColor} 0%, ${tierColor}55 50%, transparent 100%)`,
+          }}
+        />
 
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-3 flex-wrap mb-1">
-              <h1 className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>
-                {player.nickname}
-              </h1>
-              <span
-                className="flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full"
+        <div className="px-6 pt-5 pb-4">
+          <div className="flex items-start gap-5">
+            {/* 티어 엠블럼 */}
+            <div
+              className="shrink-0 rounded-2xl flex items-center justify-center"
+              style={{
+                background: `radial-gradient(circle at 40% 40%, ${tierColor}18 0%, rgba(15,22,41,0.70) 100%)`,
+                border: `1px solid ${tierColor}28`,
+                width: 88,
+                height: 88,
+              }}
+            >
+              <Image src={tierImageSrc} alt={player.tier} width={72} height={72} style={{ objectFit: "contain" }} />
+            </div>
+
+            {/* 플레이어 정보 */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap mb-1">
+                <h1
+                  className="text-2xl font-black tracking-tight"
+                  style={{
+                    color: "var(--text-primary)",
+                    fontFamily: "var(--font-display), 'Noto Sans KR', sans-serif",
+                  }}
+                >
+                  {player.nickname}
+                </h1>
+                <span
+                  className="flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full"
+                  style={{
+                    background: `${tierColor}22`,
+                    color: tierColor,
+                    border: `1px solid ${tierColor}44`,
+                  }}
+                >
+                  <Image src={tierImageSrc} alt={player.tier} width={12} height={12} />
+                  {player.tier}
+                </span>
+                <span
+                  className="text-xs px-2 py-0.5 rounded-full"
+                  style={{
+                    background: "rgba(255,255,255,0.06)",
+                    color: "var(--text-secondary)",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                  }}
+                >
+                  Lv.{player.accountLevel}
+                </span>
+              </div>
+
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span
+                  className="text-3xl font-black tabular-nums leading-none"
+                  style={{
+                    color: tierColor,
+                    fontFamily: "var(--font-display), sans-serif",
+                  }}
+                >
+                  {player.rankPoint.toLocaleString()}
+                </span>
+                <span className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>RP</span>
+                {ladderRank && (
+                  <>
+                    <span className="mx-1" style={{ color: "rgba(255,255,255,0.10)" }}>·</span>
+                    <Trophy size={12} style={{ color: "var(--text-secondary)" }} />
+                    <span className="text-sm font-bold" style={{ color: "var(--text-secondary)" }}>
+                      #{ladderRank.toLocaleString()}
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* 전적 갱신 */}
+            <div className="flex flex-col items-end shrink-0">
+              <button
+                type="button"
+                onClick={handleRefresh}
+                disabled={refreshing || syncLabel === "최근 갱신"}
+                className="flex items-center gap-2 text-sm font-bold px-4 py-2.5 rounded-xl transition-all disabled:opacity-55 disabled:cursor-not-allowed"
                 style={{
-                  background: `${tierColor}22`,
-                  color: tierColor,
-                  border: `1px solid ${tierColor}44`,
+                  background: refreshing
+                    ? "linear-gradient(135deg, rgba(148,163,184,0.35), rgba(71,85,105,0.45))"
+                    : "linear-gradient(135deg, rgba(0,255,136,0.42), rgba(255,255,255,0.88))",
+                  color: refreshing ? "rgba(226,232,240,0.9)" : "rgba(10,14,26,0.95)",
+                  border: "1px solid rgba(255,255,255,0.22)",
+                  boxShadow: refreshing
+                    ? "0 8px 24px rgba(0,0,0,0.25)"
+                    : "0 0 0 1px rgba(0,255,136,0.15), 0 12px 36px rgba(0,255,136,0.18), 0 18px 48px rgba(0,0,0,0.35)",
+                  backdropFilter: "blur(8px)",
                 }}
               >
-                <Image src={tierImageSrc} alt={player.tier} width={14} height={14} />
-                {player.tier}
-              </span>
-              <span
-                className="text-xs px-2 py-0.5 rounded-full"
-                style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-secondary)" }}
-              >
-                Lv.{player.accountLevel}
+                <RefreshCw size={16} className={refreshing ? "animate-spin shrink-0" : "shrink-0"} />
+                {refreshing ? "갱신 중..." : "전적 갱신"}
+              </button>
+              <span className="mt-2 text-[11px]" style={{ color: "var(--text-secondary)" }}>
+                {syncLabel}
               </span>
             </div>
+          </div>
 
-            <div className="flex items-center gap-1 text-sm mb-3">
-              <span style={{ color: tierColor }} className="font-bold text-lg">
-                {player.rankPoint.toLocaleString()}
-              </span>
-              <span style={{ color: "var(--text-secondary)" }}>RP</span>
-              {ladderRank && (
-                <>
-                  <span style={{ color: "var(--text-secondary)" }}>·</span>
-                  <span style={{ color: "var(--text-secondary)" }}>
-                    #{ladderRank.toLocaleString()}위
-                  </span>
-                </>
-              )}
-            </div>
-
-            {/* 요약 통계 */}
-            <div className="flex flex-wrap gap-4 text-xs">
+          {/* 요약 통계 그리드 */}
+          <div className="mt-5 pt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+            <div className="grid grid-cols-5 gap-2">
               {[
-                { icon: <Trophy size={11} />, label: "승률", val: `${player.winRate}%`, color: "#00ff88" },
-                { icon: <Target size={11} />, label: "총 게임", val: `${player.totalGames}판`, color: WHITE_ACCENT },
-                { icon: <Sword size={11} />, label: "평균 킬", val: player.avgKill.toFixed(1), color: "#ffa726" },
-                { icon: <Target size={11} />, label: "평균 딜", val: formatNumber(player.avgDamage), color: "#ffa726" },
-                { icon: <Clock size={11} />, label: "평균 순위", val: `${player.avgRank.toFixed(1)}위`, color: "var(--text-secondary)" },
+                {
+                  label: "승률",
+                  val: `${player.winRate}%`,
+                  color:
+                    player.winRate >= 60
+                      ? "#34d399"
+                      : player.winRate >= 50
+                        ? "var(--text-primary)"
+                        : "#f87171",
+                },
+                { label: "총 게임", val: `${player.totalGames}판`, color: "var(--text-primary)" },
+                { label: "평균 킬", val: player.avgKill.toFixed(1), color: "#fbbf24" },
+                { label: "평균 딜", val: formatNumber(player.avgDamage), color: "#fb923c" },
+                { label: "평균 순위", val: `${player.avgRank.toFixed(1)}위`, color: "var(--text-secondary)" },
               ].map((s) => (
-                <div key={s.label} className="flex items-center gap-1">
-                  <span style={{ color: s.color }}>{s.icon}</span>
-                  <span style={{ color: "var(--text-secondary)" }}>{s.label}</span>
-                  <span style={{ color: s.color }} className="font-bold">{s.val}</span>
+                <div
+                  key={s.label}
+                  className="flex flex-col items-center py-2.5 rounded-lg"
+                  style={{ background: "rgba(255,255,255,0.03)" }}
+                >
+                  <span
+                    className="text-lg font-black tabular-nums leading-none mb-1"
+                    style={{
+                      color: s.color,
+                      fontFamily: "var(--font-display), sans-serif",
+                    }}
+                  >
+                    {s.val}
+                  </span>
+                  <span className="text-[11px]" style={{ color: "var(--text-secondary)" }}>
+                    {s.label}
+                  </span>
                 </div>
               ))}
             </div>
-          </div>
-
-          {/* 전적 갱신 (ER 최신 데이터) */}
-          <div className="flex flex-col items-end shrink-0">
-            <button
-              type="button"
-              onClick={handleRefresh}
-              disabled={refreshing || syncLabel === "최근 갱신"}
-              className="flex items-center gap-2 text-sm font-bold px-4 py-2.5 rounded-xl transition-all disabled:opacity-55 disabled:cursor-not-allowed"
-              style={{
-                background: refreshing
-                  ? "linear-gradient(135deg, rgba(148,163,184,0.35), rgba(71,85,105,0.45))"
-                  : "linear-gradient(135deg, rgba(0,255,136,0.42), rgba(255,255,255,0.88))",
-                color: refreshing ? "rgba(226,232,240,0.9)" : "rgba(10,14,26,0.95)",
-                border: "1px solid rgba(255,255,255,0.22)",
-                boxShadow: refreshing
-                  ? "0 8px 24px rgba(0,0,0,0.25)"
-                  : "0 0 0 1px rgba(0,255,136,0.15), 0 12px 36px rgba(0,255,136,0.18), 0 18px 48px rgba(0,0,0,0.35)",
-                backdropFilter: "blur(8px)",
-              }}
-            >
-              <RefreshCw size={16} className={refreshing ? "animate-spin shrink-0" : "shrink-0"} />
-              {refreshing ? "갱신 중..." : "전적 갱신"}
-            </button>
-            <span className="mt-2 text-[11px]" style={{ color: "var(--text-secondary)" }}>
-              {syncLabel}
-            </span>
           </div>
         </div>
       </div>
 
       {/* 옥타곤 + 전적 */}
       <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6">
-        {/* 옥타곤 */}
-        <div
-          className="card p-5"
-          style={{
-            background: "linear-gradient(180deg, rgba(20,29,53,0.70) 0%, rgba(15,22,41,0.55) 100%)",
-            borderColor: "rgba(255,255,255,0.10)",
-            boxShadow: "0 18px 50px rgba(0,0,0,0.28)",
-            backdropFilter: "blur(10px)",
-          }}
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>
-              옥타곤 지표
-            </h2>
-            {displayOctagon && (
-              <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
-                최근 {displayOctagon.gamesAnalyzed}게임
-              </span>
+        {/* 왼쪽: 옥타곤 + 모스트 캐릭터 */}
+        <div className="flex flex-col gap-4">
+          {/* 옥타곤 */}
+          <div
+            className="card p-5"
+            style={{
+              background: "linear-gradient(180deg, rgba(20,29,53,0.70) 0%, rgba(15,22,41,0.55) 100%)",
+              borderColor: "rgba(255,255,255,0.10)",
+              boxShadow: "0 18px 50px rgba(0,0,0,0.28)",
+              backdropFilter: "blur(10px)",
+            }}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>
+                옥타곤 지표
+              </h2>
+              {displayOctagon && (
+                <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                  최근 {displayOctagon.gamesAnalyzed}게임
+                </span>
+              )}
+            </div>
+            {displayOctagon ? (
+              <OctagonChart
+                scores={displayOctagon}
+                grade={displayOctagon.centerGrade}
+                size={280}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-48">
+                <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                  데이터 없음
+                </p>
+              </div>
             )}
           </div>
-          {displayOctagon ? (
-            <OctagonChart
-              scores={displayOctagon}
-              grade={displayOctagon.centerGrade}
-              size={280}
-            />
-          ) : (
-            <div className="flex items-center justify-center h-48">
-              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
-                데이터 없음
-              </p>
+
+          {/* 모스트 캐릭터 */}
+          {mostPlayedChars.length > 0 && (
+            <div
+              className="card p-4"
+              style={{
+                background: "linear-gradient(180deg, rgba(20,29,53,0.70) 0%, rgba(15,22,41,0.55) 100%)",
+                borderColor: "rgba(255,255,255,0.10)",
+                boxShadow: "0 18px 50px rgba(0,0,0,0.28)",
+                backdropFilter: "blur(10px)",
+              }}
+            >
+              <h2
+                className="text-xs font-bold mb-3"
+                style={{
+                  color: "var(--text-secondary)",
+                  letterSpacing: "0.12em",
+                  textTransform: "uppercase",
+                }}
+              >
+                모스트 캐릭터
+              </h2>
+              <div className="flex flex-col gap-2.5">
+                {mostPlayedChars.map((char, idx) => {
+                  const winRate =
+                    char.games > 0 ? Math.round((char.wins / char.games) * 100) : 0;
+                  const miniSrc = getCharacterDefaultMiniSrc(char.name);
+                  const rateColor =
+                    winRate >= 60 ? "#34d399" : winRate >= 50 ? "var(--text-primary)" : "#f87171";
+                  return (
+                    <div key={char.charNum} className="flex items-center gap-2.5">
+                      <span
+                        className="text-xs tabular-nums w-4 shrink-0 font-bold"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
+                        {idx + 1}
+                      </span>
+                      <div
+                        className="w-9 h-9 rounded-lg overflow-hidden shrink-0"
+                        style={{ background: "var(--bg-secondary)" }}
+                      >
+                        {miniSrc ? (
+                          <Image
+                            src={miniSrc}
+                            alt={char.name}
+                            width={36}
+                            height={36}
+                            className="w-full h-full object-cover"
+                            unoptimized
+                          />
+                        ) : (
+                          <div
+                            className="w-full h-full flex items-center justify-center text-xs font-bold"
+                            style={{ color: "var(--text-secondary)" }}
+                          >
+                            {char.name.slice(0, 1)}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span
+                            className="text-xs font-bold truncate"
+                            style={{ color: "var(--text-primary)" }}
+                          >
+                            {char.name}
+                          </span>
+                          <span
+                            className="text-xs font-bold ml-2 shrink-0 tabular-nums"
+                            style={{ color: rateColor }}
+                          >
+                            {winRate}%
+                          </span>
+                        </div>
+                        <div
+                          className="relative h-1 rounded-full overflow-hidden"
+                          style={{ background: "rgba(255,255,255,0.07)" }}
+                        >
+                          <div
+                            className="absolute inset-y-0 left-0 rounded-full"
+                            style={{
+                              width: `${winRate}%`,
+                              background:
+                                winRate >= 60
+                                  ? "#34d399"
+                                  : winRate >= 50
+                                    ? "#60a5fa"
+                                    : "#f87171",
+                            }}
+                          />
+                        </div>
+                      </div>
+                      <span
+                        className="text-[11px] tabular-nums shrink-0"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
+                        {char.games}게임
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
@@ -416,6 +601,28 @@ export default function PlayerPage() {
             <h2 className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>
               최근 전적
             </h2>
+            {games.length >= 3 && (
+              <div className="flex items-center gap-2">
+                <span className="text-[11px]" style={{ color: "var(--text-secondary)" }}>
+                  최근 폼
+                </span>
+                <div className="flex gap-0.5">
+                  {games.slice(0, 10).map((g, i) => {
+                    const isW = g.gameRank === 1 || g.victory === 1;
+                    return (
+                      <div
+                        key={i}
+                        className="w-2 h-4 rounded-sm"
+                        style={{
+                          background: isW ? "#34d399" : "rgba(248,113,113,0.65)",
+                        }}
+                        title={isW ? "승" : `${g.gameRank}위`}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col gap-2">
