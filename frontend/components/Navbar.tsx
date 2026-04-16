@@ -3,15 +3,19 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Search, LineChart, UsersRound, PieChart } from "lucide-react";
+import { useRecentSearches } from "@/hooks/useRecentSearches";
 
 export default function Navbar() {
   const router = useRouter();
   const [query, setQuery] = useState("");
+  const { addSearch } = useRecentSearches();
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = query.trim();
-    if (trimmed) router.push(`/player/${encodeURIComponent(trimmed)}`);
+    if (!trimmed) return;
+    addSearch(trimmed);
+    router.push(`/player/${encodeURIComponent(trimmed)}`);
   };
 
   return (

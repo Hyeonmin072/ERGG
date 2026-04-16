@@ -1,9 +1,16 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Search, Target, LineChart, UsersRound, ChevronRight } from "lucide-react";
 import HeroGeometry from "@/components/HeroGeometry";
+import { useRecentSearches } from "@/hooks/useRecentSearches";
+import RecentSearchTags from "@/components/RecentSearchTags";
+import { getCharacterStats } from "@/lib/api";
+import type { CharacterStatsResponse } from "@/lib/types";
+import MetaBanner from "@/components/MetaBanner";
+import TopCharacterCards from "@/components/TopCharacterCards";
+import RecentPlayerCards from "@/components/RecentPlayerCards";
 
 const FEATURES = [
   {
@@ -30,10 +37,22 @@ export default function HomePage() {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [focused, setFocused] = useState(false);
+  const { searches, addSearch, removeSearch, clearAll } = useRecentSearches();
+  const [metaStats, setMetaStats] = useState<CharacterStatsResponse | null>(null);
+  const [metaLoading, setMetaLoading] = useState(true);
+
+  useEffect(() => {
+    getCharacterStats(10, 5)
+      .then(setMetaStats)
+      .catch(() => setMetaStats(null))
+      .finally(() => setMetaLoading(false));
+  }, []);
 
   const handleSearch = (nick: string) => {
     const trimmed = nick.trim();
-    if (trimmed) router.push(`/player/${encodeURIComponent(trimmed)}`);
+    if (!trimmed) return;
+    addSearch(trimmed);
+    router.push(`/player/${encodeURIComponent(trimmed)}`);
   };
 
   return (
@@ -150,6 +169,11 @@ export default function HomePage() {
             </button>
           </div>
         </form>
+        <RecentSearchTags
+          searches={searches}
+          onRemove={removeSearch}
+          onClearAll={clearAll}
+        />
       </div>
 
       {/* Feature cards */}
@@ -197,9 +221,45 @@ export default function HomePage() {
         ))}
       </div>
 
+      {/* TODAY'S META 구분선 */}
+      <div
+        className="w-full max-w-4xl flex items-center gap-4 mt-10 mb-8 fade-in relative"
+        style={{ animationDelay: "0.3s", zIndex: 1 }}
+      >
+        <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.06)" }} />
+        <span
+          className="text-xs font-bold tracking-widest px-3"
+          style={{ color: "rgba(255,255,255,0.18)", letterSpacing: "0.2em" }}
+        >
+          TODAY&apos;S META
+        </span>
+        <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.06)" }} />
+      </div>
+
+      {/* 숫자 요약 배너 */}
+      {(metaLoading || metaStats) && (
+        <div className="w-full max-w-4xl mb-6 fade-in relative" style={{ animationDelay: "0.35s", zIndex: 1 }}>
+          <MetaBanner stats={metaStats} loading={metaLoading} />
+        </div>
+      )}
+
+      {/* TOP 5 실험체 카드 */}
+      {(metaLoading || metaStats) && (
+        <div className="w-full max-w-4xl mb-10 fade-in relative" style={{ animationDelay: "0.4s", zIndex: 1 }}>
+          <TopCharacterCards stats={metaStats} loading={metaLoading} />
+        </div>
+      )}
+
+      {/* 최근 검색 플레이어 카드 */}
+      {searches.length > 0 && (
+        <div className="w-full max-w-4xl mb-10 fade-in relative" style={{ animationDelay: "0.45s", zIndex: 1 }}>
+          <RecentPlayerCards searches={searches} />
+        </div>
+      )}
+
       {/* Live data badge */}
       <div
-        className="mt-12 flex items-center gap-2 px-4 py-2 rounded-full text-xs relative"
+        className="mb-8 flex items-center gap-2 px-4 py-2 rounded-full text-xs relative"
         style={{
           zIndex: 1,
           background: "rgba(20,29,53,0.55)",

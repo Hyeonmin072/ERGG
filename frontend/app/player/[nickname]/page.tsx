@@ -24,6 +24,7 @@ import {
   getCharacterCatalog,
   ApiError,
 } from "@/lib/api";
+import { useRecentSearches } from "@/hooks/useRecentSearches";
 import type { PlayerProfile, UserGame } from "@/lib/types";
 import { RefreshCw, Trophy, Sword, Target, Clock, AlertCircle } from "lucide-react";
 
@@ -72,6 +73,7 @@ export default function PlayerPage() {
   const [error, setError] = useState<string | null>(null);
   const [charCatalog, setCharCatalog] = useState<CharacterCatalogMap>({});
   const [detailGame, setDetailGame] = useState<UserGame | null>(null);
+  const { updateTierInfo } = useRecentSearches();
 
   /** 로드된 전적 목록 기준 랭크 최대 20판 — 더보기 후에도 최신 20판 유지 */
   const displayOctagon = useMemo(() => {
@@ -185,6 +187,12 @@ export default function PlayerPage() {
   }, [nickname]);
 
   useEffect(() => { loadPlayer(); }, [loadPlayer]);
+
+  useEffect(() => {
+    if (player?.nickname && player.tier && player.rankPoint != null) {
+      updateTierInfo(player.nickname, player.tier, player.rankPoint);
+    }
+  }, [player?.nickname, player?.tier, player?.rankPoint, updateTierInfo]);
 
   // ── 갱신 ─────────────────────────────────────────────────────
   const handleRefresh = async () => {
