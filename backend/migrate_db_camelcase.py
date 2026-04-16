@@ -193,7 +193,9 @@ async def main_async() -> None:
     load_dotenv(Path(__file__).resolve().parent / ".env")
     raw = (os.getenv("DATABASE_URL") or "").strip()
     if not raw:
-        raise SystemExit("DATABASE_URL 이 없습니다. backend/.env 를 확인하세요.")
+        raise SystemExit(
+            "DATABASE_URL 이 없습니다. 로컬: backend/.env, CI: GitHub Actions secrets.DATABASE_URL"
+        )
 
     dsn = _sqlalchemy_to_asyncpg_dsn(raw)
     use_ssl = not ("localhost" in dsn or "127.0.0.1" in dsn)

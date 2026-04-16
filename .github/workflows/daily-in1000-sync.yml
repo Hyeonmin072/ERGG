@@ -73,4 +73,7 @@ jobs:
         run: python sync_supabase_from_user_ids.py
 
       - name: Run database migrations
+        env:
+          # 로컬은 backend/.env, CI에는 커밋하지 않으므로 Secret 사용
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: python migrate_db_camelcase.py
