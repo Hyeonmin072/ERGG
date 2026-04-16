@@ -7,9 +7,12 @@
 /*
 !.gitignore
 !*/
-!.claude/
 !docker-compose.yml
 !package-lock.json
+
+# !*/ 때문에 루트 디렉터리가 다시 추적되므로, 아래는 명시적으로 무시
+/.claude/
+/screenshots/
 
 
 # ── 환경 변수 (절대 커밋 금지) ───────────────────────────────
