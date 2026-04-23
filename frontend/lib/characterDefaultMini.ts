@@ -1,13 +1,13 @@
 import type { ComboRosterName } from "./comboRoster";
 
 /**
- * 한글 실험체 표기 → `public/images/character/default/` 폴더명 (예: 001.Jackie)
+ * 한글 실험체 표기 → `public/images/character/` 하위 폴더명 (예: 001. Jackie)
  * 게임 내 순서와 폴더 번호가 다를 수 있어 이름 기준으로만 연결합니다.
  */
 export const COMBO_CHARACTER_DEFAULT_DIRS: Partial<Record<ComboRosterName, string>> = {
   재키: "001.Jackie",
   아야: "002.Aya",
-  현우: "003.Hyeonwoo",
+  현우: "003.Hyunwoo",
   매그너스: "004.Magnus",
   피오라: "005.Fiora",
   나딘: "006.Nadine",
@@ -63,7 +63,7 @@ export const COMBO_CHARACTER_DEFAULT_DIRS: Partial<Record<ComboRosterName, strin
   피올로: "056.Piolo",
   마르티나: "057.Martina",
   헤이즈: "058.Haze",
-  아이작: "059.Issac",
+  아이작: "059.Isaac",
   타지아: "060.Tazia",
   이렘: "061.Irem",
   테오도르: "062.Theodore",
@@ -75,7 +75,7 @@ export const COMBO_CHARACTER_DEFAULT_DIRS: Partial<Record<ComboRosterName, strin
   알론소: "068.Alonso",
   레니: "069.Leni",
   츠바메: "070.Tsubame",
-  케네스: "071.Kennethe",
+  케네스: "071.Kenneth",
   카티야: "072.Katja",
   샬럿: "073.Charlotte",
   다르코: "074.Darko",
@@ -118,6 +118,13 @@ const MINI_FILENAME_OVERRIDES: Partial<Record<ComboRosterName, string>> = {
   코렐라인: "Mini_Coraline_00.png",
 };
 
+const CHARACTER_DEFAULT_VARIANT_DIR = "02. Default";
+
+function normalizeCharacterDir(assetDir: string): string {
+  // 실제 에셋 폴더가 "001. Jackie" 형태면 legacy "001.Jackie" 매핑도 자동 변환한다.
+  return assetDir.replace(/^(\d+)\.\s*/, "$1. ");
+}
+
 function defaultMiniFilenameFromDir(assetDir: string): string {
   const dot = assetDir.indexOf(".");
   const english = dot >= 0 ? assetDir.slice(dot + 1) : assetDir;
@@ -131,16 +138,19 @@ export function getCharacterAssetMiniUrl(
 ): string {
   const file =
     MINI_FILENAME_OVERRIDES[koName] ?? defaultMiniFilenameFromDir(assetDir);
-  const encDir = encodeURIComponent(assetDir);
+  const normalizedDir = normalizeCharacterDir(assetDir);
+  const encDir = encodeURIComponent(normalizedDir);
+  const encVariantDir = encodeURIComponent(CHARACTER_DEFAULT_VARIANT_DIR);
   const encFile = encodeURIComponent(file);
-  return `/images/character/default/${encDir}/${encFile}`;
+  return `/images/character/${encDir}/${encVariantDir}/${encFile}`;
 }
 
 /** @deprecated 내부용 — `getCharacterAssetMiniUrl` 사용 권장 */
 export function defaultMiniPathFromAssetDir(assetDir: string): string {
   const dot = assetDir.indexOf(".");
   const english = dot >= 0 ? assetDir.slice(dot + 1) : assetDir;
-  return `/images/character/default/${encodeURIComponent(assetDir)}/${encodeURIComponent(`${english}_Mini_00.png`)}`;
+  const normalizedDir = normalizeCharacterDir(assetDir);
+  return `/images/character/${encodeURIComponent(normalizedDir)}/${encodeURIComponent(CHARACTER_DEFAULT_VARIANT_DIR)}/${encodeURIComponent(`${english}_Mini_00.png`)}`;
 }
 
 export function getCharacterDefaultMiniSrc(nameKo: string): string | null {

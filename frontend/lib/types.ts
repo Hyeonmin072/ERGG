@@ -376,6 +376,8 @@ export interface PlayerGamesResponse {
   games: UserGame[];
   next: string | null;   // cursor for next page
   ladderRank?: number | null; // ER /v2/user/stats rank
+  /** 서버 기준 최신 동기화 시각 (ISO string) */
+  refreshedAt?: string | null;
   /** First-page request with persist: background Supabase write may be scheduled */
   persistScheduled?: boolean;
 }
