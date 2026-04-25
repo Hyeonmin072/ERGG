@@ -11,6 +11,19 @@ RANK_MATCHING_MODE = 3
 _MAX_RANK_FETCH_PAGES = 80
 
 
+def _participant_key(g: dict[str, Any]) -> str | None:
+    """15자리 참가자 키: gameId(10) + teamNumber(2) + characterNum(3)."""
+    try:
+        game_id = int(g.get("gameId") or 0)
+        team_number = int(g.get("teamNumber") or 0)
+        character_num = int(g.get("characterNum") or 0)
+    except (TypeError, ValueError):
+        return None
+    if game_id <= 0 or team_number < 0 or character_num < 0:
+        return None
+    return f"{game_id:010d}{team_number:02d}{character_num:03d}"
+
+
 def _nickname_key(nickname: str) -> str:
     """lower(trim(nickname)) — same as migration backfill."""
     return (nickname or "").strip().lower()
@@ -75,9 +88,11 @@ def _build_game_row(g: dict[str, Any]) -> dict[str, Any]:
 
 def _build_game_detail_row(user_id: str, g: dict[str, Any]) -> dict[str, Any]:
     """Supabase `game_details` — snake_case 컬럼명."""
+    pkey = _participant_key(g)
     return {
         "game_id": g.get("gameId"),
         "user_id": user_id,
+        "participant_key": pkey,
         "character_num": g.get("characterNum", 0),
         "character_level": g.get("characterLevel", 0),
         "skin_code": g.get("skinCode", 0),
@@ -269,6 +284,42 @@ async def sync_user_games_by_user_id_to_supabase(
 
     game_rows = [_build_game_row(g) for g in user_games if g.get("gameId")]
     gd_rows = [_build_game_detail_row(user_id, g) for g in user_games if g.get("gameId")]
+
+    # participant_key가 이미 존재하면 저장 스킵 (요청 규칙)
+    if gd_rows:
+        candidate_keys = sorted(
+            {
+                str(r.get("participant_key"))
+                for r in gd_rows
+                if isinstance(r.get("participant_key"), str) and r.get("participant_key")
+            }
+        )
+        existing_keys: set[str] = set()
+        if candidate_keys:
+            try:
+                resp = (
+                    sb.table("game_details")
+                    .select("participant_key")
+                    .in_("participant_key", candidate_keys)
+                    .execute()
+                )
+                existing_keys = {
+                    str((row or {}).get("participant_key"))
+                    for row in (resp.data or [])
+                    if (row or {}).get("participant_key")
+                }
+            except Exception:
+                # 컬럼 미생성 등 예외 시 기존 업서트 동작으로 폴백
+                existing_keys = set()
+        if existing_keys:
+            gd_rows = [
+                r
+                for r in gd_rows
+                if not (
+                    isinstance(r.get("participant_key"), str)
+                    and r.get("participant_key") in existing_keys
+                )
+            ]
 
     if game_rows:
         sb.table("games").upsert(game_rows, on_conflict="game_id").execute()

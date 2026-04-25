@@ -158,6 +158,7 @@ CREATE TABLE IF NOT EXISTS game_details (
     id              BIGSERIAL   PRIMARY KEY,
     "gameId"        BIGINT      NOT NULL REFERENCES games("gameId") ON DELETE CASCADE,
     "userId"        VARCHAR(200) NOT NULL REFERENCES players("userId"),
+    "participantKey" TEXT,
     "userNum"       BIGINT,
 
     -- ── 캐릭터 ──────────────────────────────────────
@@ -400,6 +401,8 @@ CREATE INDEX IF NOT EXISTS idx_gd_character     ON game_details ("characterNum")
 CREATE INDEX IF NOT EXISTS idx_gd_game_rank     ON game_details ("gameRank");
 CREATE INDEX IF NOT EXISTS idx_gd_victory       ON game_details (victory);
 CREATE INDEX IF NOT EXISTS idx_gd_user_game     ON game_details ("userId", "gameId");
+CREATE UNIQUE INDEX IF NOT EXISTS uq_gd_participant_key ON game_details ("participantKey");
+CREATE INDEX IF NOT EXISTS idx_gd_participant_key ON game_details ("participantKey");
 
 CREATE INDEX IF NOT EXISTS idx_gd_equipment_gin     ON game_details USING GIN (equipment);
 CREATE INDEX IF NOT EXISTS idx_gd_mastery_gin       ON game_details USING GIN ("masteryLevel");
