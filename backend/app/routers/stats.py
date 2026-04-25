@@ -59,6 +59,45 @@ def _fetch_all_rows(table: str, columns: str, batch_size: int = 1000) -> list[di
     return rows
 
 
+def _fetch_ranked_squad_game_ids(batch_size: int = 1000) -> set[int]:
+    """games 테이블에서 랭크(3) + 스쿼드(3) game_id만 조회."""
+    sb = get_supabase_client()
+    ids: set[int] = set()
+    start = 0
+    while True:
+        end = start + batch_size - 1
+        resp = (
+            sb.table("games")
+            .select("game_id")
+            .eq("matching_mode", 3)
+            .eq("matching_team_mode", 3)
+            .range(start, end)
+            .execute()
+        )
+        data = resp.data or []
+        ids.update(_to_int(g.get("game_id")) for g in data if _to_int(g.get("game_id")) > 0)
+        if len(data) < batch_size:
+            break
+        start += batch_size
+    return ids
+
+
+def _fetch_game_details_by_game_ids(
+    game_ids: set[int], columns: str, chunk_size: int = 100
+) -> list[dict]:
+    """game_details를 game_id 집합으로 제한 조회."""
+    if not game_ids:
+        return []
+    sb = get_supabase_client()
+    rows: list[dict] = []
+    ids = sorted(game_ids)
+    for i in range(0, len(ids), chunk_size):
+        chunk = ids[i : i + chunk_size]
+        resp = sb.table("game_details").select(columns).in_("game_id", chunk).execute()
+        rows.extend(resp.data or [])
+    return rows
+
+
 def _percentile_scores(values: list[float]) -> list[float]:
     """
     PERCENT_RANK 유사 계산.
@@ -123,18 +162,13 @@ async def get_character_stats(
         pass
 
     try:
-        # 운영 DB는 snake_case(game_id, …). camelCase 스키마와 병행 시 _row_get 으로 양쪽 키 처리.
-        games_rows = _fetch_all_rows("games", "game_id,matching_mode,matching_team_mode")
-        ranked_squad_game_ids = {
-            _to_int(_row_get(g, "gameId", "game_id"))
-            for g in games_rows
-            if _to_int(_row_get(g, "matchingMode", "matching_mode")) == 3
-            and _to_int(_row_get(g, "matchingTeamMode", "matching_team_mode")) == 3
-        }
-        rows = _fetch_all_rows(
-            "game_details",
-            "game_id,character_num,best_weapon,game_rank,victory,"
-            "damage_to_player,damage_to_monster,mmr_gain,team_kill,player_kill",
+        ranked_squad_game_ids = _fetch_ranked_squad_game_ids()
+        rows = _fetch_game_details_by_game_ids(
+            ranked_squad_game_ids,
+            (
+                "game_id,character_num,best_weapon,game_rank,victory,"
+                "damage_to_player,damage_to_monster,mmr_gain,team_kill,player_kill"
+            ),
         )
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"games/game_details 조회 실패: {e}")
@@ -150,10 +184,6 @@ async def get_character_stats(
         settings.er_api_base_url,
         settings.er_api_key,
     )
-
-    rows = [
-        r for r in rows if _to_int(_row_get(r, "gameId", "game_id")) in ranked_squad_game_ids
-    ]
 
     if not rows:
         return {"totalGames": 0, "count": 0, "items": []}

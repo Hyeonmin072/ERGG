@@ -67,14 +67,19 @@ def _release_nickname_key_for_other_users(
 
 def _build_game_row(g: dict[str, Any]) -> dict[str, Any]:
     """Supabase `games` — snake_case 컬럼명."""
+    season_id = int(g.get("seasonId") or 0)
+    version_major = int(g.get("versionMajor") or 0)
+    version_minor = int(g.get("versionMinor") or 0)
+    full_version = f"{season_id - 27}.{version_major}.{version_minor}"
     return {
         "game_id": g.get("gameId"),
-        "season_id": g.get("seasonId", 0),
+        "season_id": season_id,
         "matching_mode": g.get("matchingMode", 0),
         "matching_team_mode": g.get("matchingTeamMode", 0),
         "server_name": g.get("serverName", "Global"),
-        "version_major": g.get("versionMajor", 0),
-        "version_minor": g.get("versionMinor", 0),
+        "version_major": version_major,
+        "version_minor": version_minor,
+        "full_version": full_version,
         "start_dtm": g.get("startDtm"),
         "duration": g.get("duration", 0),
         "match_size": g.get("matchSize", 0),

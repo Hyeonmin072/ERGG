@@ -88,6 +88,17 @@ function NumCell({ children, mono }: { children: ReactNode; mono?: boolean }) {
   );
 }
 
+function RpGainWithArrow({ value }: { value: number }) {
+  if (!Number.isFinite(value)) return <>—</>;
+  return (
+    <span className="inline-flex items-center gap-1">
+      {value > 0 && <span style={{ color: "#ef4444" }}>▲</span>}
+      {value < 0 && <span style={{ color: "#3b82f6" }}>▼</span>}
+      <span>{fmtStat(value)}</span>
+    </span>
+  );
+}
+
 /** 티어 등급 정렬용 (낮을수록 상위) */
 const TIER_ORDER: Record<string, number> = {
   "S+": 0,
@@ -515,6 +526,9 @@ export default function StatsPage() {
                   <SortTh col="tierScore" className="px-3" activeColumn={sortColumn} sortDir={sortDir} onSort={handleSortClick}>
                     티어점수
                   </SortTh>
+                  <SortTh col="avgRpGain" className="px-3" activeColumn={sortColumn} sortDir={sortDir} onSort={handleSortClick}>
+                    평균 RP
+                  </SortTh>
                   <SortTh col="pickRatePct" className="px-3" activeColumn={sortColumn} sortDir={sortDir} onSort={handleSortClick}>
                     전체픽률
                   </SortTh>
@@ -532,9 +546,6 @@ export default function StatsPage() {
                   </SortTh>
                   <SortTh col="avgTk" className="px-3" activeColumn={sortColumn} sortDir={sortDir} onSort={handleSortClick}>
                     평균 TK
-                  </SortTh>
-                  <SortTh col="avgRpGain" className="px-3" activeColumn={sortColumn} sortDir={sortDir} onSort={handleSortClick}>
-                    평균 RP
                   </SortTh>
                   <SortTh col="avgDamage" className="px-3" activeColumn={sortColumn} sortDir={sortDir} onSort={handleSortClick}>
                     평균딜(플레이어)
@@ -584,6 +595,11 @@ export default function StatsPage() {
                       <NumCell mono>{fmtStat(row.tierScore)}</NumCell>
                     </td>
                     <td className="px-3 py-3 text-right">
+                      <NumCell mono>
+                        <RpGainWithArrow value={row.avgRpGain} />
+                      </NumCell>
+                    </td>
+                    <td className="px-3 py-3 text-right">
                       <NumCell mono>{fmtStat(row.pickRatePct)}%</NumCell>
                     </td>
                     <td className="px-3 py-3 text-right">
@@ -604,9 +620,6 @@ export default function StatsPage() {
                     </td>
                     <td className="px-3 py-3 text-right">
                       <NumCell mono>{fmtStat(row.avgTk)}</NumCell>
-                    </td>
-                    <td className="px-3 py-3 text-right">
-                      <NumCell mono>{fmtStat(row.avgRpGain)}</NumCell>
                     </td>
                     <td className="px-3 py-3 text-right">
                       <NumCell mono>{fmtInt(row.avgDamage)}</NumCell>
@@ -670,6 +683,12 @@ export default function StatsPage() {
                   티어점수 <span style={{ color: "var(--text-primary)" }}>{fmtStat(row.tierScore)}</span>
                 </div>
                 <div>
+                  평균RP{" "}
+                  <span style={{ color: "var(--text-primary)" }}>
+                    <RpGainWithArrow value={row.avgRpGain} />
+                  </span>
+                </div>
+                <div>
                   전체픽률 <span style={{ color: "var(--text-primary)" }}>{fmtStat(row.pickRatePct)}%</span>
                 </div>
                 <div>
@@ -686,9 +705,6 @@ export default function StatsPage() {
                 </div>
                 <div>
                   평균TK <span style={{ color: "var(--text-primary)" }}>{fmtStat(row.avgTk)}</span>
-                </div>
-                <div>
-                  평균RP <span style={{ color: "var(--text-primary)" }}>{fmtStat(row.avgRpGain)}</span>
                 </div>
                 <div>
                   딜(플레이어) <span style={{ color: "var(--text-primary)" }}>{fmtInt(row.avgDamage)}</span>
