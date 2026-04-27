@@ -71,31 +71,3 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           ER_API_KEY: ${{ secrets.ER_API_KEY }}
         run: python sync_supabase_from_user_ids.py
-
-      - name: Validate DATABASE_URL (must not be localhost)
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: |
-          python - <<'PY'
-          import os
-          import sys
-
-          url = (os.getenv("DATABASE_URL") or "").strip()
-          if not url:
-              print("DATABASE_URL is empty.")
-              sys.exit(1)
-
-          bad_hosts = ("localhost", "127.0.0.1", "::1")
-          if any(host in url for host in bad_hosts):
-              print(f"Invalid DATABASE_URL for CI: {url}")
-              print("Use remote DB URL (e.g. Supabase direct connection URL).")
-              sys.exit(1)
-
-          print("DATABASE_URL validation passed.")
-          PY
-
-      - name: Run database migrations
-        env:
-          # 로컬은 backend/.env, CI에는 커밋하지 않으므로 Secret 사용
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: python migrate_db_camelcase.py
